@@ -1,0 +1,10 @@
+{
+  "name": "Portal Hídrico Chaco - Sistema de Emergencias y Monitoreo",
+  "description": "Sistema de monitoreo hidrológico de cuencas del Chaco (Resistencia, Barranqueras), escáner y testeo de vulnerabilidad territorial, despacho operativo SOS para Bomberos Voluntarios Barranqueras y Defensa Civil.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

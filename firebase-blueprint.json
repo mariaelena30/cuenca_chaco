@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "TicketSOS": {
+      "title": "TicketSOS",
+      "description": "Pedido de auxilio y rescate ciudadano por inundación",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "nombre": { "type": "string" },
+        "telefono": { "type": "string" },
+        "localidad": { "type": "string" },
+        "direccion": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "personasAfectadas": { "type": "number" },
+        "personasVulnerables": {
+          "type": "object",
+          "properties": {
+            "ninos": { "type": "number" },
+            "ancianos": { "type": "number" },
+            "movilidadReducida": { "type": "number" }
+          }
+        },
+        "alturaAguaCm": { "type": "number" },
+        "nivelUrgencia": { "type": "string", "enum": ["MEDIO", "ALTO", "CRITICO_VIDA"] },
+        "requiere": { "type": "array" },
+        "estado": { "type": "string", "enum": ["PENDIENTE", "DESPACHADO", "EN_RESCATE", "RESUELTO"] },
+        "notasDespacho": { "type": "string" },
+        "unidadAsignada": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "nombre", "localidad", "direccion", "estado"]
+    },
+    "ReporteCiudadano": {
+      "title": "ReporteCiudadano",
+      "description": "Reporte ciudadano de anegamiento de calzada o barrio",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "nombre": { "type": "string" },
+        "localidad": { "type": "string" },
+        "barrio": { "type": "string" },
+        "calle": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "nivelAguaAprox": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "verificado": { "type": "boolean" },
+        "impacto": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "localidad", "descripcion"]
+    },
+    "RecursoOperativo": {
+      "title": "RecursoOperativo",
+      "description": "Móviles, gomones y brigadas de rescate",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "tipo": { "type": "string" },
+        "base_localidad": { "type": "string" },
+        "estado": { "type": "string", "enum": ["DISPONIBLE", "DESPLAZADO", "MANTENIMIENTO"] },
+        "contacto_radio": { "type": "string" },
+        "asignadoA": { "type": "string" }
+      },
+      "required": ["id", "nombre", "estado"]
+    },
+    "CentroEvacuacion": {
+      "title": "CentroEvacuacion",
+      "description": "Albergues y centros de evacuados",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string" },
+        "localidad": { "type": "string" },
+        "direccion": { "type": "string" },
+        "capacidadTotal": { "type": "number" },
+        "personasAlojadadas": { "type": "number" },
+        "responsable": { "type": "string" },
+        "telefono": { "type": "string" }
+      },
+      "required": ["id", "nombre", "capacidadTotal", "personasAlojadadas"]
+    },
+    "AlertaPreVerificacion": {
+      "title": "AlertaPreVerificacion",
+      "description": "Cola de alertas tempranas que requieren aprobación humana",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "localidad": { "type": "string" },
+        "fase": { "type": "string" },
+        "nivelActual": { "type": "number" },
+        "nivelProyectado": { "type": "number" },
+        "textoPropuesto": { "type": "string" },
+        "estado": { "type": "string", "enum": ["PENDIENTE_REVISION", "APROBADA_DIFUNDIDA", "DESCARTADA_FALSO_POSITIVO"] },
+        "canalesDestino": { "type": "array" },
+        "revisor": { "type": "string" }
+      },
+      "required": ["id", "localidad", "textoPropuesto", "estado"]
+    },
+    "KanbanTask": {
+      "title": "KanbanTask",
+      "description": "Tareas operativas del Comité de Crisis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titulo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "prioridad": { "type": "string" },
+        "estado": { "type": "string", "enum": ["TODO", "IN_PROGRESS", "DONE"] },
+        "categoria": { "type": "string" },
+        "asignado": { "type": "string" },
+        "fechaLimite": { "type": "string" }
+      },
+      "required": ["id", "titulo", "estado"]
+    }
+  },
+  "firestore": {
+    "/tickets_sos/{ticketId}": {
+      "schema": "TicketSOS",
+      "description": "Colección de pedidos de auxilio SOS en tiempo real"
+    },
+    "/reportes_ciudadanos/{reporteId}": {
+      "schema": "ReporteCiudadano",
+      "description": "Colección de reportes de anegamiento reportados por vecinos"
+    },
+    "/recursos_operativos/{recursoId}": {
+      "schema": "RecursoOperativo",
+      "description": "Estado de gomones, camionetas y brigadas"
+    },
+    "/centros_evacuacion/{refugioId}": {
+      "schema": "CentroEvacuacion",
+      "description": "Capacidad y ocupación en tiempo real de albergues de evacuados"
+    },
+    "/alertas_preverificacion/{alertaId}": {
+      "schema": "AlertaPreVerificacion",
+      "description": "Cola de pre-verificación de alertas para validación del operador"
+    },
+    "/kanban_tasks/{taskId}": {
+      "schema": "KanbanTask",
+      "description": "Tablero Kanban de tareas de emergencia"
+    }
+  }
+}
