@@ -50,6 +50,12 @@ import {
   updateKanbanTaskStatusInDB,
 } from './lib/realtimeService';
 import { Navbar } from './components/Navbar';
+import { AlertaTempranaVertederos } from './components/AlertaTempranaVertederos';
+import {
+  obtenerCuencasReales,
+  obtenerLocalidadesReales,
+  obtenerBarriosReales,
+} from './services/api';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
 import { InteractiveMap } from './components/InteractiveMap';
 import { HydroTrends } from './components/HydroTrends';
@@ -103,9 +109,9 @@ export function App() {
       try {
         const [
           resResumen,
-          resCuencas,
-          resLocs,
-          resBarrios,
+          resCuencasReal,
+          resLocsReal,
+          resBarriosReal,
           resEsts,
           resSos,
           resReps,
@@ -115,9 +121,9 @@ export function App() {
           resTasks,
         ] = await Promise.allSettled([
           fetch('/api/resumen').then((r) => r.json()),
-          fetch('/api/cuencas').then((r) => r.json()),
-          fetch('/api/localidades').then((r) => r.json()),
-          fetch('/api/barrios').then((r) => r.json()),
+          obtenerCuencasReales(),
+          obtenerLocalidadesReales(),
+          obtenerBarriosReales(),
           fetch('/api/estaciones').then((r) => r.json()),
           fetch('/api/sos').then((r) => r.json()),
           fetch('/api/reportes').then((r) => r.json()),
@@ -127,28 +133,25 @@ export function App() {
           fetch('/api/kanban').then((r) => r.json()),
         ]);
 
-        if (resCuencas.status === 'fulfilled' && resCuencas.value?.cuencas) {
-          const cMap: Record<string, Cuenca> = {};
-          resCuencas.value.cuencas.forEach((c: Cuenca) => {
-            cMap[c.id] = c;
-          });
-          setCuencas(cMap);
+        // obtenerCuencasReales/obtenerLocalidadesReales/obtenerBarriosReales
+        // ya devuelven un Record<string, T> armado (no un array para mapear
+        // como las rutas /api/* viejas), asi que se usan directo.
+        if (resCuencasReal.status === 'fulfilled') {
+          setCuencas(resCuencasReal.value);
+        } else {
+          console.warn('No se pudo traer /cuencas del backend real, usando datos de ejemplo:', resCuencasReal.reason);
         }
 
-        if (resLocs.status === 'fulfilled' && resLocs.value?.localidades) {
-          const lMap: Record<string, Localidad> = {};
-          resLocs.value.localidades.forEach((l: Localidad) => {
-            lMap[l.id] = l;
-          });
-          setLocalidades(lMap);
+        if (resLocsReal.status === 'fulfilled') {
+          setLocalidades(resLocsReal.value);
+        } else {
+          console.warn('No se pudo traer /localidades del backend real, usando datos de ejemplo:', resLocsReal.reason);
         }
 
-        if (resBarrios.status === 'fulfilled' && resBarrios.value?.barrios) {
-          const bMap: Record<string, BarrioVulnerable> = {};
-          resBarrios.value.barrios.forEach((b: BarrioVulnerable) => {
-            bMap[b.id] = b;
-          });
-          setBarrios(bMap);
+        if (resBarriosReal.status === 'fulfilled') {
+          setBarrios(resBarriosReal.value);
+        } else {
+          console.warn('No se pudo traer /barrios del backend real, usando datos de ejemplo:', resBarriosReal.reason);
         }
 
         if (resEsts.status === 'fulfilled' && resEsts.value?.estaciones) {
@@ -507,6 +510,11 @@ export function App() {
           alertCount={alertCount}
           backendOnline={backendOnline}
         />
+      </div>
+
+      {/* Alerta temprana: vertederos Itaipú/Yacyretá + Nota Técnica ENSO */}
+      <div className="relative z-10">
+        <AlertaTempranaVertederos />
       </div>
 
       {/* Main Content Area */}
