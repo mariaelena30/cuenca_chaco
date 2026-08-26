@@ -21,7 +21,6 @@ import {
   Phone,
   Flame,
   Ship,
-  LifeBuoy,
 } from 'lucide-react';
 
 interface MonitoringDashboardProps {
@@ -53,6 +52,33 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
 }) => {
   return (
     <div className="space-y-6 pb-10">
+      {/* 1. Dynamic Basin Cards (Las 4 Cuencas Hidrográficas del Chaco) - Vista Principal Superior */}
+      <section>
+        <BasinDynamicCards
+          cuencas={cuencas}
+          onSelectCuenca={onSelectCuenca}
+        />
+      </section>
+
+      {/* 2. Quick Locality Consultation (Selector por Localidad del Chaco) - SEGUNDO */}
+      <section>
+        <LocalitiesCarousel
+          localidades={localidades}
+          onSelectLocalidad={onSelectLocalidad}
+          onNavigateToMap={onNavigateToMap}
+        />
+      </section>
+
+      {/* 3. Vulnerable Areas & Critical Localities - TERCERO */}
+      <section>
+        <VulnerableAreasGrid
+          barrios={barrios}
+          localidades={localidades}
+          onNavigateToMap={onNavigateToMap}
+          onOpenScanner={onOpenScanner}
+        />
+      </section>
+
       {/* SECCIÓN DESTACADA: ¿DÓNDE Y CÓMO PEDIR AYUDA? - LÍNEAS DE EMERGENCIA Y REPORTE DE ANEGAMIENTO */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 border border-slate-700/90 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
@@ -156,7 +182,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-3 gap-2 pt-1">
               <a
                 href="tel:100"
                 className="p-2 rounded-lg bg-slate-900 hover:bg-rose-950/80 border border-slate-800 hover:border-rose-700 text-slate-200 transition-colors flex items-center justify-between"
@@ -192,50 +218,9 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 </div>
                 <span className="text-sm font-black font-mono text-sky-400">106</span>
               </a>
-
-              <a
-                href="https://wa.me/5493624780000"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-800/80 text-emerald-200 transition-colors flex items-center justify-between"
-                title="Enviar mensaje de WhatsApp a Bomberos Barranqueras"
-              >
-                <div className="flex items-center gap-1.5">
-                  <LifeBuoy className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-xs font-semibold">WhatsApp</span>
-                </div>
-                <span className="text-[10px] font-bold uppercase text-emerald-400">Guardia</span>
-              </a>
             </div>
           </div>
         </div>
-      </section>
-
-      {/* 1. Dynamic Basin Cards (Las 4 Cuencas Hidrográficas del Chaco) - Vista Principal Superior */}
-      <section>
-        <BasinDynamicCards
-          cuencas={cuencas}
-          onSelectCuenca={onSelectCuenca}
-        />
-      </section>
-
-      {/* 2. Quick Locality Consultation (Selector por Localidad del Chaco) - SEGUNDO */}
-      <section>
-        <LocalitiesCarousel
-          localidades={localidades}
-          onSelectLocalidad={onSelectLocalidad}
-          onNavigateToMap={onNavigateToMap}
-        />
-      </section>
-
-      {/* 3. Vulnerable Areas & Critical Localities - TERCERO */}
-      <section>
-        <VulnerableAreasGrid
-          barrios={barrios}
-          localidades={localidades}
-          onNavigateToMap={onNavigateToMap}
-          onOpenScanner={onOpenScanner}
-        />
       </section>
 
       {/* Regional Hydro-climatic Synthesis */}
