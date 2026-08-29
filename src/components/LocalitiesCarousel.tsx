@@ -34,21 +34,29 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
 
   const filteredList = locList.filter((loc) =>
     loc.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    loc.cuenca_clave.toLowerCase().includes(searchTerm.toLowerCase())
+    (loc.cuenca_clave || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // SIN DATO: localidades del interior (pluviales) no tienen estacion de
+  // rio propia a proposito - ver main.py, no se inventan niveles/umbrales
+  // cuando no hay fuente. Hay que evitar romper el render con esos null.
+  const selSinDato =
+    selectedLoc.nivel_metros == null || selectedLoc.umbral_alerta == null || selectedLoc.umbral_evacuacion == null;
+
   // Status calculation
-  const isEvac = selectedLoc.nivel_metros >= selectedLoc.umbral_evacuacion;
-  const isAlert = selectedLoc.nivel_metros >= selectedLoc.umbral_alerta;
+  const isEvac = !selSinDato && selectedLoc.nivel_metros >= selectedLoc.umbral_evacuacion;
+  const isAlert = !selSinDato && selectedLoc.nivel_metros >= selectedLoc.umbral_alerta;
   const isAtencion = selectedLoc.fase_calculada === 'ATENCION' || selectedLoc.id === 'el_sauzalito';
-  const pctAlerta = Math.min(100, Math.max(8, Math.round((selectedLoc.nivel_metros / selectedLoc.umbral_alerta) * 100)));
+  const pctAlerta = selSinDato
+    ? 0
+    : Math.min(100, Math.max(8, Math.round((selectedLoc.nivel_metros / selectedLoc.umbral_alerta) * 100)));
 
   const hasTrendingUp = (selectedLoc.tasa_cambio_m_dia || 0) > 0;
   const hasTrendingDown = (selectedLoc.tasa_cambio_m_dia || 0) < 0;
 
   // Basin styling helper
-  const getBasinColor = (cuencaKey: string) => {
-    const key = cuencaKey.toLowerCase();
+  const getBasinColor = (cuencaKey: string | null | undefined) => {
+    const key = (cuencaKey || '').toLowerCase();
     if (key.includes('bermejo')) return { badge: 'bg-amber-950/50 text-amber-300 border-amber-800/40', text: 'text-amber-300', dot: 'bg-amber-400' };
     if (key.includes('paraguay')) return { badge: 'bg-indigo-950/50 text-indigo-300 border-indigo-800/40', text: 'text-indigo-300', dot: 'bg-indigo-400' };
     if (key.includes('pilcomayo')) return { badge: 'bg-teal-950/50 text-teal-300 border-teal-800/40', text: 'text-teal-300', dot: 'bg-teal-400' };
