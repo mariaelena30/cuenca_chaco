@@ -25,15 +25,12 @@ import {
   ALERTAS_PRE_VERIFICACION_INICIALES,
   KANBAN_TASKS_INICIALES,
   CONTACTOS_EMERGENCIA,
-  ORGANISMOS_DETALLE,
 } from './data/chacoData';
 import { Navbar } from './components/Navbar';
-import { OrganismosPanel } from './components/OrganismosPanel';
 import {
   obtenerCuencasReales,
   obtenerLocalidadesReales,
   obtenerBarriosReales,
-  obtenerEstacionesReales,
   crearSOSReal,
   listarSOSReales,
   crearReporteReal,
@@ -76,18 +73,22 @@ export function App() {
   const [isSITREPModalOpen, setIsSITREPModalOpen] = useState(false);
   const [selectedCuencaForModal, setSelectedCuencaForModal] = useState<Cuenca | null>(null);
 
-  // Trae datos REALES de tu backend
+  // Trae datos REALES de tu backend.
+  // NOTA: estaciones hidrometricas todavia no tiene un endpoint propio en
+  // el backend (cuencas-bot solo expone /historico/{estacion} para UNA
+  // estacion a la vez, no un listado). Hasta que se sume ese endpoint,
+  // se queda con los datos de referencia de chacoData.ts (igual que
+  // recursos, refugios, pre-alertas y kanban).
   const refreshData = async () => {
     const resultados = await Promise.allSettled([
       obtenerCuencasReales(),
       obtenerLocalidadesReales(),
       obtenerBarriosReales(),
-      obtenerEstacionesReales(),
       listarSOSReales(),
       listarReportesReales(),
     ]);
 
-    const [resCuencas, resLocs, resBarrios, resEstaciones, resSOS, resReps] = resultados;
+    const [resCuencas, resLocs, resBarrios, resSOS, resReps] = resultados;
 
     if (resCuencas.status === 'fulfilled') setCuencas(resCuencas.value);
     else console.warn('No se pudo traer /cuencas:', resCuencas.reason);
@@ -97,9 +98,6 @@ export function App() {
 
     if (resBarrios.status === 'fulfilled') setBarrios(resBarrios.value);
     else console.warn('No se pudo traer /barrios:', resBarrios.reason);
-
-    if (resEstaciones.status === 'fulfilled') setEstaciones(resEstaciones.value);
-    else console.warn('No se pudo traer el historico de estaciones:', resEstaciones.reason);
 
     if (resSOS.status === 'fulfilled') setTicketsSOS(resSOS.value);
     else console.warn('No se pudo traer /sos:', resSOS.reason);
@@ -278,3 +276,154 @@ export function App() {
   };
 
   const sosPendingCount = ticketsSOS.filter(
+    (t) => t.estado === 'PENDIENTE' || t.estado === 'DESPACHADO'
+  ).length;
+
+  const alertCount = (Object.values(localidades) as Localidad[]).filter(
+    (l) => l.estado === 'ALERTA' || l.fase_calculada === 'ATENCION'
+  ).length;
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white relative overflow-x-hidden font-sans">
+      {/* Immersive radial gradient and dot matrix overlay */}
+      <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_#0f172a_0%,_#020617_100%)] opacity-80 z-0" />
+      <div
+        className="fixed inset-0 pointer-events-none opacity-20 z-0"
+        style={{
+          backgroundImage: 'radial-gradient(#334155 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+
+      {/* Top Navigation */}
+      <div className="relative z-10">
+        <Navbar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          onOpenSOS={() => setIsSOSModalOpen(true)}
+          onOpenReport={() => setIsReportModalOpen(true)}
+          onOpenSITREP={() => setIsSITREPModalOpen(true)}
+          sosPendingCount={sosPendingCount}
+          alertCount={alertCount}
+        />
+      </div>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16 relative z-10">
+        {activeTab === 'monitoreo' && (
+          <MonitoringDashboard
+            cuencas={cuencas}
+            localidades={localidades}
+            estaciones={estaciones}
+            barrios={barrios}
+            onSelectCuenca={(c) => setSelectedCuencaForModal(c)}
+            onSelectLocalidad={() => setActiveTab('mapa')}
+          />
+        )}
+
+        {activeTab === 'mapa' && (
+          <InteractiveMap
+            cuencas={cuencas}
+            localidades={localidades}
+            estaciones={estaciones}
+            barrios={barrios}
+            ticketsSOS={ticketsSOS}
+            reportes={reportes}
+            refugios={refugios}
+          />
+        )}
+
+        {activeTab === 'operativo' && (
+          <CivilDefenseDispatch
+            ticketsSOS={ticketsSOS}
+            reportes={reportes}
+            recursos={recursos}
+            refugios={refugios}
+            alertasPreVerificacion={alertasPreVerificacion}
+            onUpdateTicketStatus={handleUpdateTicketStatus}
+            onApprovePreAlerta={handleApprovePreAlerta}
+            onUpdateShelterOccupancy={handleUpdateShelterOccupancy}
+            onUpdateResourceStatus={handleUpdateResourceStatus}
+          />
+        )}
+
+        {activeTab === 'bot' && (
+          <BotSimulator
+            onTriggerSOS={() => setIsSOSModalOpen(true)}
+            onTriggerReport={() => setIsReportModalOpen(true)}
+          />
+        )}
+
+        {activeTab === 'kanban' && (
+          <KanbanWorkflow
+            tasks={kanbanTasks}
+            onUpdateTask={handleUpdateTask}
+            onCreateTask={handleCreateTask}
+          />
+        )}
+
+        {activeTab === 'historico' && (
+          <HydroTrends
+            estaciones={estaciones}
+            crecidasHistoricas={crecidasHistoricas}
+          />
+        )}
+      </main>
+
+      {/* Modals */}
+      <EmergencySOSModal
+        isOpen={isSOSModalOpen}
+        onClose={() => setIsSOSModalOpen(false)}
+        onSubmitSOS={handleCreateSOS}
+      />
+
+      <CitizenReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        onSubmitReport={handleCreateReport}
+      />
+
+      <BasinDetailModal
+        cuenca={selectedCuencaForModal}
+        onClose={() => setSelectedCuencaForModal(null)}
+      />
+
+      <AIAdvisorModal
+        isOpen={isSITREPModalOpen}
+        onClose={() => setIsSITREPModalOpen(false)}
+      />
+
+      {/* Command Center Telemetry Footer */}
+      <footer className="relative z-10 bg-slate-950/90 border-t border-slate-800/80 backdrop-blur-xl text-slate-400 py-6 px-4 sm:px-8">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-[10px] font-mono uppercase tracking-widest text-slate-500">
+            <span className="flex items-center gap-1.5">
+              DB_STATUS: <span className="text-emerald-400 font-bold">SYNCED</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              ENCRYPTION: <span className="text-cyan-400 font-bold">AES-256</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              UPLINK: <span className="text-emerald-400 font-bold">4.2 GBPS (APA-PNA)</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              STUDY: <span className="text-cyan-300 font-bold">GÓMEZ (2025 CONICET/UNNE)</span>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono font-bold">
+            <span className="px-2.5 py-1 rounded bg-red-950/50 border border-red-900/60 text-red-400">🚨 DEF. CIVIL: 103</span>
+            <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400">🚒 BOMBEROS: 100</span>
+            <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400">🌊 PREFECTURA: 106</span>
+            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400">🚑 SAME: 107</span>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[10px] text-slate-600 font-mono">
+          © 2025 SENTINEL EMERGENCY HUB • SISTEMA INTEGRAL DE MONITOREO HIDROLÓGICO Y GESTIÓN DE EMERGENCIAS DEL CHACO
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default App;
