@@ -21,47 +21,42 @@ export interface Cuenca {
   desemboca_en: string;
   tipo: string;
   departamentos: string[];
-  estacion_referencia: string;
-  nivel_actual_m: number;
-  umbral_alerta: number;
-  umbral_evacuacion: number;
+  estacion_referencia: string | null;
+  nivel_actual_m: number | null;
+  umbral_alerta: number | null;
+  umbral_evacuacion: number | null;
   fuente: string;
   conectado: boolean;
-  ultima_verificacion: string;
+  ultima_verificacion: string | null;
   bbox_aprox: {
     lat_min: number;
     lat_max: number;
     lon_min: number;
     lon_max: number;
   };
-  parametros_forma: ParametrosForma;
-  clasificacion_tamano: string;
+  parametros_forma?: ParametrosForma;
+  clasificacion_tamano?: string;
   comportamiento_hidrologico: string;
   color_hex: string;
-  subcuencas_tributarias?: Array<{
-    nombre: string;
-    descripcion: string;
-    area_km2?: number;
-    caracteristicas?: string;
-  }>;
 }
 
 export interface Localidad {
   id: string;
   nombre: string;
-  cuenca_clave: string;
+  provincia?: 'Chaco' | 'Corrientes' | 'Formosa';
+  cuenca_clave: string | null;
   lat: number;
   lon: number;
-  nivel_metros: number;
+  nivel_metros: number | null;
   nivel_anterior_m?: number;
-  umbral_alerta: number;
-  umbral_evacuacion: number;
-  precipitacion_acumulada_mm: number;
+  umbral_alerta: number | null;
+  umbral_evacuacion: number | null;
+  precipitacion_acumulada_mm: number | null;
   precipitacion_72h_mm?: number;
   fuente: string;
   conectado: boolean;
-  ultima_verificacion: string;
-  estado: 'NORMAL' | 'ALERTA' | 'EVACUACION';
+  ultima_verificacion: string | null;
+  estado: 'NORMAL' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO';
   fase_calculada?: FaseAlertaType;
   emoji: string;
   tasa_cambio_m_dia?: number;
@@ -69,6 +64,19 @@ export interface Localidad {
   horas_para_evacuacion?: number | null;
   estacion_hidrometrica_asociada?: string;
   barrios_vulnerables_ids?: string[];
+  tipo_inundacion_dominante?: 'fluvial' | 'pluvial' | string;
+  influencia_internacional?: string | null;
+}
+
+export interface Organismo {
+  id: string;
+  nombre: string;
+  nivel: string;
+  dependencia?: string | null;
+  rol: string;
+  url?: string | null;
+  url_alertas?: string;
+  nota?: string;
 }
 
 export interface BarrioVulnerable {
@@ -79,7 +87,8 @@ export interface BarrioVulnerable {
   lon: number;
   precision: string;
   motivo: string;
-  direccion_referencia?: string;
+  cota_inundacion_m?: number;
+  familias_estimadas?: number;
   via_acceso_critica?: string;
   estado_actual?: 'SEGURO' | 'RIESGO_MEDIO' | 'RIESGO_ALTO' | 'INUNDADO';
 }
@@ -87,6 +96,7 @@ export interface BarrioVulnerable {
 export interface EstacionHidrometrica {
   id: string;
   nombre: string;
+  provincia?: 'Chaco' | 'Corrientes' | 'Formosa';
   rio: string;
   cuenca_relacionada: string;
   lat: number;
@@ -164,6 +174,10 @@ export interface CentroEvacuacion {
   responsable: string;
   telefono: string;
   abierto: boolean;
+  // true solo si estos datos fueron confirmados con la institucion real.
+  // Si es false, la UI debe mostrar "SIN CONFIRMAR" en vez de tratar
+  // capacidadTotal/responsable/telefono como datos ciertos.
+  confirmado: boolean;
 }
 
 export interface AlertaPreVerificacion {
@@ -191,36 +205,6 @@ export interface CrecidaHistorica {
   descripcion: string;
   impacto: string;
   lecciones: string;
-}
-
-export interface EstacionBombeo {
-  id: string;
-  nombre: string;
-  localidad: string;
-  cuenca_o_valle: string;
-  lat: number;
-  lon: number;
-  bombas_totales: number;
-  bombas_activas: number;
-  capacidad_m3_seg: number;
-  estado_compuerta: 'ABIERTA' | 'CERRADA' | 'PARCIAL';
-  nivel_reservorio_m: number;
-  nivel_rio_exterior_m: number;
-  estado_operativo: 'OPTIMO' | 'ALERTA' | 'CRITICO';
-  generador_auxiliar: 'OPERATIVO' | 'FUERA_SERVICIO';
-  ultima_inspeccion: string;
-}
-
-export interface MensajeDifusion {
-  id: string;
-  timestamp: string;
-  tipo: 'ALERTA_TEMPRANA' | 'EVACUACION' | 'INFORMATIVO' | 'CORTES_RUTAS';
-  canal: 'SMS_RURAL' | 'TELEGRAM_DEFENSA_CIVIL' | 'WHATSAPP_COMUNIDAD' | 'SIRENA_LOCAL';
-  destinatarios_segmento: string;
-  destinatarios_conteo: number;
-  mensaje: string;
-  autor: string;
-  estado: 'ENVIADO' | 'PROGRAMADO' | 'FALLIDO';
 }
 
 export interface KanbanTask {
