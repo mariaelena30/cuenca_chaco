@@ -161,12 +161,13 @@ export function App() {
         descripcion: reporte.descripcion || 'Anegamiento reportado.',
         verificado: false,
         impacto: 'MODERADO',
-      };
-      setReportes((prev) => [fallbackReport, ...prev]);
-    }
-  };
+      }; 
+       setReportes((prev) => [fallbackReport, ...prev]);
+      }
+     };
 
   const handleUpdateTicketStatus = async (
+
     id: string,
     estado: TicketSOS['estado'],
     unidad?: string,
