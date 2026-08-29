@@ -163,7 +163,7 @@ export const CivilDefenseDispatch: React.FC<CivilDefenseDispatchProps> = ({
     const resu = ticketsSOS.filter((t) => t.estado === 'RESUELTO').length;
     const nowStr = new Date().toLocaleString('es-AR');
 
-    const text = `📋 INFORME DE SITUACIÓN (SITREP GUARDIA) - BOMBEROS VOLUNTARIOS BARRANQUERAS
+    const text = `📋 INFORME DE SITUACIÓN (SITREP GUARDIA)
 FECHA/HORA: ${nowStr}
 ESTADO OPERATIVO: ${isOfflineMode ? 'GUARDIA AUTÓNOMA LOCAL (RADIO VHF)' : 'CONECTADO EN LÍNEA'}
 RESPONSABLE: Álvarez María Elena
