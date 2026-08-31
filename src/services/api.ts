@@ -32,7 +32,7 @@ import {
   TicketSOS,
   ReporteCiudadano,
 } from '../types';
-import { CUENCAS_DETALLE, LOCALIDADES_DETALLE, BARRIOS_VULNERABLES_DETALLE } from '../data/chacoData';
+import { CUENCAS_DETALLE, LOCALIDADES_DETALLE, BARRIOS_VULNERABLES_DETALLE, COORDENADAS_RESPALDO } from '../data/chacoData';
 
 // Configurar en Vercel como variable de entorno VITE_API_URL.
 // En desarrollo local, usa el backend de Render por defecto.
@@ -60,12 +60,13 @@ export async function obtenerCuencasReales(): Promise<Record<string, Cuenca>> {
     {
       nombre: string;
       estacion: string;
-      nivel_metros: number;
-      umbral_alerta: number;
-      umbral_evacuacion: number;
+      nivel_metros: number | null;
+      umbral_alerta: number | null;
+      umbral_evacuacion: number | null;
       fuente: string;
       conectado: boolean;
-      ultima_verificacion: string;
+      ultima_verificacion: string | null;
+      estado: 'NORMAL' | 'MONITOREO' | 'ATENCION' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO';
     }
   >;
 
@@ -83,6 +84,7 @@ export async function obtenerCuencasReales(): Promise<Record<string, Cuenca>> {
       fuente: viva.fuente,
       conectado: viva.conectado,
       ultima_verificacion: viva.ultima_verificacion,
+      estado: viva.estado,
     };
   }
   return resultado;
@@ -97,15 +99,15 @@ export async function obtenerLocalidadesReales(): Promise<Record<string, Localid
     string,
     {
       nombre: string;
-      cuenca_clave: string;
-      nivel_metros: number;
-      umbral_alerta: number;
-      umbral_evacuacion: number;
-      precipitacion_acumulada_mm: number;
+      cuenca_clave: string | null;
+      nivel_metros: number | null;
+      umbral_alerta: number | null;
+      umbral_evacuacion: number | null;
+      precipitacion_acumulada_mm: number | null;
       fuente: string;
       conectado: boolean;
-      ultima_verificacion: string;
-      estado: 'NORMAL' | 'ALERTA' | 'EVACUACION';
+      ultima_verificacion: string | null;
+      estado: 'NORMAL' | 'MONITOREO' | 'ATENCION' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO';
       emoji: string;
     }
   >;
@@ -127,8 +129,8 @@ export async function obtenerLocalidadesReales(): Promise<Record<string, Localid
       ultima_verificacion: viva.ultima_verificacion,
       estado: viva.estado,
       emoji: viva.emoji || estatica?.emoji || '📍',
-      lat: estatica?.lat, // coordenadas no vienen del backend, se completan con las estaticas
-      lon: estatica?.lon,
+      lat: estatica?.lat ?? COORDENADAS_RESPALDO[clave]?.lat,
+      lon: estatica?.lon ?? COORDENADAS_RESPALDO[clave]?.lon,
     };
   }
   return resultado;
