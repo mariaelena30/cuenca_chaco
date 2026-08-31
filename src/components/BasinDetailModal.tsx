@@ -36,7 +36,7 @@ export const BasinDetailModal: React.FC<BasinDetailModalProps> = ({ cuenca, onCl
             </div>
             <div>
               <span className="text-xs uppercase tracking-wider text-cyan-400 font-bold">
-                ESTUDIO HIDROLÓGICO PROVINCIAL • APA CHACO
+                ESTUDIO HIDROLÓGICO PROVINCIAL 
               </span>
               <h3 className="text-xl font-bold text-white tracking-tight">{cuenca.nombre_oficial}</h3>
             </div>
