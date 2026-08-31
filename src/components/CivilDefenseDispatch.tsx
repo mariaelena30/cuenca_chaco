@@ -198,7 +198,7 @@ Líneas de Guardia: Bomberos 100 | Defensa Civil 103`;
         destinatarios_segmento: broadcastTarget,
         destinatarios_conteo: broadcastChannel === 'SMS_RURAL' ? 1420 : 350,
         mensaje: broadcastText,
-        autor: 'Guardia Bomberos Voluntarios Barranqueras',
+        autor: '',
         estado: 'ENVIADO',
       });
     }
@@ -230,7 +230,7 @@ Líneas de Guardia: Bomberos 100 | Defensa Civil 103`;
                 </span>
               </div>
               <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mt-0.5">
-                Centro Operativo — Bomberos Barranqueras & Defensa Civil
+                Centro Operativo — Bomberos & Defensa Civil
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 Recepción directa de auxilios, gestión de recursos de rescate y coordinación de guardia las 24 horas.
