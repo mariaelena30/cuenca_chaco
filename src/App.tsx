@@ -413,9 +413,9 @@ export function App() {
 
           <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono font-bold">
             <span className="px-2.5 py-1 rounded bg-red-950/50 border border-red-900/60 text-red-400">🚨 DEF. CIVIL: 103</span>
-            <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400">🚒 BOMBEROS: 100</span>
-            <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400">🌊 PREFECTURA: 106</span>
-            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400">🚑 SAME: 107</span>
+            <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400"> BOMBEROS: 100</span>
+            <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400"> PREFECTURA: 106</span>
+            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400"> SAME: 107</span>
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[10px] text-slate-600 font-mono">
