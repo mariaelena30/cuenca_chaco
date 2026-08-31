@@ -161,9 +161,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-white">
                 Portal Hídrico Chaco
               </h1>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-rose-950/80 text-rose-300 border border-rose-800/80 uppercase tracking-wider">
-                BOMBEROS VOLUNTARIOS BARRANQUERAS
-              </span>
             </div>
             <p className="text-xs text-slate-400">
               Resistencia • Barranqueras • Red Hidrológica Provincial y Alerta Temprana
