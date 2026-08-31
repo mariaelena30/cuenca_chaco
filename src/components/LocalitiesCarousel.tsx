@@ -43,10 +43,29 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
   const selSinDato =
     selectedLoc.nivel_metros == null || selectedLoc.umbral_alerta == null || selectedLoc.umbral_evacuacion == null;
 
-  // Status calculation
-  const isEvac = !selSinDato && selectedLoc.nivel_metros >= selectedLoc.umbral_evacuacion;
-  const isAlert = !selSinDato && selectedLoc.nivel_metros >= selectedLoc.umbral_alerta;
-  const isAtencion = selectedLoc.fase_calculada === 'ATENCION' || selectedLoc.id === 'el_sauzalito';
+  // Sistema de 5 niveles (estilo JMA/Japon), igual que en BasinDynamicCards.
+  // Si vino de la API real se usa selectedLoc.estado (autoritativo,
+  // calculado por el backend); si no, se recalcula igual aca.
+  let nivelAlerta: 'NORMAL' | 'MONITOREO' | 'ATENCION' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO' = 'SIN_DATO';
+  if (!selSinDato) {
+    if (selectedLoc.estado) {
+      nivelAlerta = selectedLoc.estado as typeof nivelAlerta;
+    } else if (selectedLoc.nivel_metros >= selectedLoc.umbral_evacuacion) {
+      nivelAlerta = 'EVACUACION';
+    } else if (selectedLoc.nivel_metros >= selectedLoc.umbral_alerta) {
+      nivelAlerta = 'ALERTA';
+    } else if (selectedLoc.nivel_metros >= selectedLoc.umbral_alerta * 0.9) {
+      nivelAlerta = 'ATENCION';
+    } else if (selectedLoc.nivel_metros >= selectedLoc.umbral_alerta * 0.7) {
+      nivelAlerta = 'MONITOREO';
+    } else {
+      nivelAlerta = 'NORMAL';
+    }
+  }
+  const isEvac = nivelAlerta === 'EVACUACION';
+  const isAlert = nivelAlerta === 'ALERTA';
+  const isAtencion = nivelAlerta === 'ATENCION';
+  const isMonitoreo = nivelAlerta === 'MONITOREO';
   const pctAlerta = selSinDato
     ? 0
     : Math.min(100, Math.max(8, Math.round((selectedLoc.nivel_metros / selectedLoc.umbral_alerta) * 100)));
@@ -95,7 +114,7 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
             >
               {locList.map((loc) => (
                 <option key={loc.id} value={loc.id} className="bg-slate-900 text-slate-100">
-                  📍 {loc.nombre} ({loc.cuenca_clave.toUpperCase()}) — {loc.nivel_metros.toFixed(2)}m
+                  📍 {loc.nombre} ({(loc.cuenca_clave || 'PLUVIAL').toUpperCase()}) — {loc.nivel_metros == null ? 'sin dato' : `${loc.nivel_metros.toFixed(2)}m`}
                 </option>
               ))}
             </select>
@@ -111,7 +130,7 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
           <div className="lg:col-span-4 space-y-2">
             <div className="flex items-center gap-2">
               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${currentBasinStyle.badge}`}>
-                Cuenca {selectedLoc.cuenca_clave}
+                Cuenca {selectedLoc.cuenca_clave || 'pluvial (sin río asociado)'}
               </span>
               <span className="text-xs text-slate-400">
                 Fuente: {selectedLoc.fuente}
@@ -125,7 +144,14 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
 
             {/* Plain language explanation for citizens and firefighters */}
             <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800/80 text-xs">
-              {isEvac ? (
+              {selSinDato ? (
+                <div className="flex items-start gap-2 text-slate-300">
+                  <Info className="w-4 h-4 shrink-0 text-slate-400 mt-0.5" />
+                  <span>
+                    <strong>Sin estación de río:</strong> esta localidad no tiene estación hidrométrica pública en tiempo real. El riesgo acá es por lluvia local, no por crecida de río.
+                  </span>
+                </div>
+              ) : isEvac ? (
                 <div className="flex items-start gap-2 text-rose-300 font-medium">
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
                   <span>
@@ -133,8 +159,8 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
                   </span>
                 </div>
               ) : isAlert ? (
-                <div className="flex items-start gap-2 text-amber-300 font-medium">
-                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                <div className="flex items-start gap-2 text-orange-300 font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-orange-400 mt-0.5" />
                   <span>
                     <strong>Nivel de Alerta:</strong> Río en cota crítica ({selectedLoc.umbral_alerta}m). Se recomienda preparar pertenencias y seguir avisos.
                   </span>
@@ -143,7 +169,14 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
                 <div className="flex items-start gap-2 text-amber-300">
                   <Info className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
                   <span>
-                    <strong>En Seguimiento Preventivo:</strong> Río en ascenso gradual ({hasTrendingUp ? `+${(selectedLoc.tasa_cambio_m_dia! * 100).toFixed(0)} cm/día` : 'estable'}), sin riesgo inminente.
+                    <strong>Atención:</strong> río acercándose al umbral de alerta ({hasTrendingUp ? `+${(selectedLoc.tasa_cambio_m_dia! * 100).toFixed(0)} cm/día` : 'ascenso lento'}). Empezar a prepararse.
+                  </span>
+                </div>
+              ) : isMonitoreo ? (
+                <div className="flex items-start gap-2 text-sky-300">
+                  <Info className="w-4 h-4 shrink-0 text-sky-400 mt-0.5" />
+                  <span>
+                    <strong>En Monitoreo:</strong> río en ascenso gradual ({hasTrendingUp ? `+${(selectedLoc.tasa_cambio_m_dia! * 100).toFixed(0)} cm/día` : 'estable'}), sin riesgo inminente. Se vigila la tendencia.
                   </span>
                 </div>
               ) : (
@@ -163,7 +196,7 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
               <span className="text-xs text-slate-400 font-medium">Altura actual del río</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-3xl font-bold font-mono text-white tracking-tight">
-                  {selectedLoc.nivel_metros.toFixed(2)}
+                  {selSinDato ? '—' : selectedLoc.nivel_metros.toFixed(2)}
                 </span>
                 <span className="text-sm font-mono text-slate-400">m</span>
               </div>
@@ -174,14 +207,15 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
               <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
-                    isEvac ? 'bg-rose-500' : isAlert ? 'bg-amber-500' : isAtencion ? 'bg-amber-400' : 'bg-slate-300'
+                    selSinDato ? 'bg-slate-600' :
+                    isEvac ? 'bg-rose-500' : isAlert ? 'bg-orange-500' : isAtencion ? 'bg-amber-400' : isMonitoreo ? 'bg-sky-400' : 'bg-emerald-400'
                   }`}
                   style={{ width: `${pctAlerta}%` }}
                 />
               </div>
               <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                <span>Alerta: {selectedLoc.umbral_alerta.toFixed(2)}m</span>
-                <span>Evacuación: {selectedLoc.umbral_evacuacion.toFixed(2)}m</span>
+                <span>Alerta: {selSinDato ? 'sin dato' : `${selectedLoc.umbral_alerta.toFixed(2)}m`}</span>
+                <span>Evacuación: {selSinDato ? 'sin dato' : `${selectedLoc.umbral_evacuacion.toFixed(2)}m`}</span>
               </div>
             </div>
 
@@ -268,7 +302,7 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
                 />
                 <span>{loc.nombre}</span>
                 <span className="text-[10px] opacity-75 font-mono">
-                  {loc.nivel_metros.toFixed(2)}m
+                  {loc.nivel_metros == null ? 'sin dato' : `${loc.nivel_metros.toFixed(2)}m`}
                 </span>
               </button>
             );
