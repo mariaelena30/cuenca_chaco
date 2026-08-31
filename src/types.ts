@@ -38,6 +38,7 @@ export interface Cuenca {
   clasificacion_tamano?: string;
   comportamiento_hidrologico: string;
   color_hex: string;
+  estado?: FaseAlertaType;
 }
 
 export interface Localidad {
@@ -56,7 +57,7 @@ export interface Localidad {
   fuente: string;
   conectado: boolean;
   ultima_verificacion: string | null;
-  estado: 'NORMAL' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO';
+  estado: FaseAlertaType;
   fase_calculada?: FaseAlertaType;
   emoji: string;
   tasa_cambio_m_dia?: number;
