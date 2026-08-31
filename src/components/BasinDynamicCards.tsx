@@ -124,10 +124,37 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
         {filteredBasins.map((c) => {
           const isExpanded = expandedCardId === c.id;
-          const isAlert = c.nivel_actual_m >= c.umbral_alerta;
-          const isEvac = c.nivel_actual_m >= c.umbral_evacuacion;
-          const isAtencion = c.id === 'bermejo';
-          const pct = Math.min(100, Math.round((c.nivel_actual_m / c.umbral_alerta) * 100));
+
+          // SIN DATO: cuencas como el Rio Negro no tienen estacion de
+          // medicion publica en tiempo real (a proposito - ver main.py,
+          // no se inventan niveles/umbrales cuando no hay fuente).
+          const sinDato = c.nivel_actual_m == null || c.umbral_alerta == null || c.umbral_evacuacion == null;
+
+          // Sistema de 5 niveles (estilo JMA/Japon) calculado por el
+          // backend en calcular_estado() - si vino de la API real se usa
+          // ese estado; si no (fallback local sin conexion), se
+          // recalcula igual aca para no dejar la tarjeta sin color.
+          let nivelAlerta: 'NORMAL' | 'MONITOREO' | 'ATENCION' | 'ALERTA' | 'EVACUACION' | 'SIN_DATO' = 'SIN_DATO';
+          if (!sinDato) {
+            if (c.estado) {
+              nivelAlerta = c.estado as typeof nivelAlerta;
+            } else if (c.nivel_actual_m >= c.umbral_evacuacion) {
+              nivelAlerta = 'EVACUACION';
+            } else if (c.nivel_actual_m >= c.umbral_alerta) {
+              nivelAlerta = 'ALERTA';
+            } else if (c.nivel_actual_m >= c.umbral_alerta * 0.9) {
+              nivelAlerta = 'ATENCION';
+            } else if (c.nivel_actual_m >= c.umbral_alerta * 0.7) {
+              nivelAlerta = 'MONITOREO';
+            } else {
+              nivelAlerta = 'NORMAL';
+            }
+          }
+          const isEvac = nivelAlerta === 'EVACUACION';
+          const isAlert = nivelAlerta === 'ALERTA';
+          const isAtencion = nivelAlerta === 'ATENCION';
+          const isMonitoreo = nivelAlerta === 'MONITOREO';
+          const pct = sinDato ? 0 : Math.min(100, Math.round((c.nivel_actual_m / c.umbral_alerta) * 100));
 
           // Basin-specific thematic accents (refined, subtle, elegant colors)
           let basinTheme = {
@@ -171,15 +198,21 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
           let statusBadge = 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40';
           let statusText = 'NORMAL';
 
-          if (isEvac) {
+          if (sinDato) {
+            statusBadge = 'bg-slate-800/60 text-slate-400 border-slate-700/60';
+            statusText = 'SIN DATO';
+          } else if (isEvac) {
             statusBadge = 'bg-rose-950/50 text-rose-300 border-rose-800/50';
             statusText = 'EVACUACIÓN';
           } else if (isAlert) {
-            statusBadge = 'bg-amber-950/50 text-amber-300 border-amber-800/50';
+            statusBadge = 'bg-orange-950/50 text-orange-300 border-orange-800/50';
             statusText = 'ALERTA';
           } else if (isAtencion) {
-            statusBadge = 'bg-amber-950/40 text-amber-300 border-amber-800/40';
-            statusText = 'SEGUIMIENTO (+15cm/d)';
+            statusBadge = 'bg-amber-950/50 text-amber-300 border-amber-800/50';
+            statusText = 'ATENCIÓN';
+          } else if (isMonitoreo) {
+            statusBadge = 'bg-sky-950/40 text-sky-300 border-sky-800/40';
+            statusText = 'MONITOREO (+15cm/d)';
           }
 
           return (
@@ -217,7 +250,7 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
                     <span className="text-xs text-slate-400 font-medium">Nivel en hidrómetro</span>
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-bold font-mono text-white">
-                        {c.nivel_actual_m.toFixed(2)}
+                        {sinDato ? '—' : c.nivel_actual_m.toFixed(2)}
                       </span>
                       <span className="text-xs font-mono text-slate-400">m</span>
                     </div>
@@ -231,8 +264,8 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
                   </div>
 
                   <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                    <span>Alerta: {c.umbral_alerta.toFixed(2)}m</span>
-                    <span>Evac: {c.umbral_evacuacion.toFixed(2)}m</span>
+                    <span>Alerta: {sinDato ? 'sin dato' : `${c.umbral_alerta.toFixed(2)}m`}</span>
+                    <span>Evac: {sinDato ? 'sin dato' : `${c.umbral_evacuacion.toFixed(2)}m`}</span>
                   </div>
                 </div>
 
