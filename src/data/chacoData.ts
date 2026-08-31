@@ -1498,3 +1498,23 @@ export const CONTACTOS_EMERGENCIA = [
     whatsapp: '3624-377044',
   },
 ];
+
+// ---------------------------------------------------------------------
+// COORDENADAS DE RESPALDO — localidades pluviales sin entrada estatica
+// completa en LOCALIDADES_DETALLE (se agregaron al backend el 29/08/2026
+// pero no tenian ficha propia en el frontend, asi que quedaban sin
+// lat/lon al fusionar con la API real y rompian el mapa).
+//
+// Estas son coordenadas del centro urbano de cada localidad (dato
+// geografico publico, NO una medicion hidrologica) - fuente: Wikipedia /
+// INDEC, consultado 30/08/2026. No reemplazan una fuente oficial de
+// nivel de agua; solo permiten ubicar el pin en el mapa.
+// ---------------------------------------------------------------------
+export const COORDENADAS_RESPALDO: Record<string, { lat: number; lon: number }> = {
+  san_martin_chaco: { lat: -26.5375, lon: -59.3417 }, // Gral. José de San Martín (Wikipedia)
+  santa_sylvina: { lat: -27.7830, lon: -61.1500 },    // Santa Sylvina (Wikipedia)
+  charata: { lat: -27.2180, lon: -61.1874 },          // Charata (Wikipedia)
+  quitilipi: { lat: -26.8700, lon: -60.2200 },        // Quitilipi (derutasymapas.com.ar)
+  castelli: { lat: -25.9500, lon: -60.6170 },         // Juan José Castelli (Wikipedia)
+  presidencia_de_la_plaza: { lat: -26.9986, lon: -59.8466 }, // Presidencia de la Plaza (codigopostalmundo.com)
+};
