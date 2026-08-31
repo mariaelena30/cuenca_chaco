@@ -91,7 +91,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
                 ¿Dónde y Cómo Pedir Ayuda en Chaco? • Emergencias & Anegamientos
               </h2>
               <p className="text-xs text-slate-400">
-                Guardias 24hs de Bomberos Voluntarios Barranqueras, Defensa Civil Chaco y Prefectura Naval
+                Guardias 24hs de Bomberos Voluntarios, Defensa Civil Chaco y Prefectura Naval
               </p>
             </div>
           </div>
