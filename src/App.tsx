@@ -35,6 +35,8 @@ import {
   listarSOSReales,
   crearReporteReal,
   listarReportesReales,
+  obtenerAlertasSMN,
+  EstadoAlertasSMN,
 } from './services/api';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
 import { InteractiveMap } from './components/InteractiveMap';
@@ -66,6 +68,11 @@ export function App() {
   );
   const [kanbanTasks, setKanbanTasks] = useState<KanbanTask[]>(KANBAN_TASKS_INICIALES);
   const [crecidasHistoricas] = useState<CrecidaHistorica[]>(CRECIDAS_HISTORICAS);
+  const [alertasSMN, setAlertasSMN] = useState<EstadoAlertasSMN>({
+    alertas: [],
+    cantidad: 0,
+    ultima_verificacion: null,
+  });
 
   // Modal States
   const [isSOSModalOpen, setIsSOSModalOpen] = useState(false);
@@ -86,9 +93,10 @@ export function App() {
       obtenerBarriosReales(),
       listarSOSReales(),
       listarReportesReales(),
+      obtenerAlertasSMN(),
     ]);
 
-    const [resCuencas, resLocs, resBarrios, resSOS, resReps] = resultados;
+    const [resCuencas, resLocs, resBarrios, resSOS, resReps, resAlertas] = resultados;
 
     if (resCuencas.status === 'fulfilled') setCuencas(resCuencas.value);
     else console.warn('No se pudo traer /cuencas:', resCuencas.reason);
@@ -104,6 +112,9 @@ export function App() {
 
     if (resReps.status === 'fulfilled') setReportes(resReps.value);
     else console.warn('No se pudo traer /reportes:', resReps.reason);
+
+    if (resAlertas.status === 'fulfilled') setAlertasSMN(resAlertas.value);
+    else console.warn('No se pudo traer /alertas:', resAlertas.reason);
   };
 
   useEffect(() => {
@@ -179,7 +190,6 @@ export function App() {
     } catch (e) {
       console.warn('Error patching ticket on server', e);
     }
-
     setTicketsSOS((prev) =>
       prev.map((t) =>
         t.id === id
@@ -204,7 +214,6 @@ export function App() {
     } catch (e) {
       console.warn('Error updating pre-alert', e);
     }
-
     setAlertasPreVerificacion((prev) =>
       prev.map((a) =>
         a.id === id
@@ -244,7 +253,6 @@ export function App() {
     } catch (e) {
       console.warn('Error patching kanban task', e);
     }
-
     setKanbanTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, estado } : t))
     );
@@ -307,6 +315,22 @@ export function App() {
           alertCount={alertCount}
         />
       </div>
+
+      {alertasSMN.alertas.length > 0 && (
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          {alertasSMN.alertas.map((alerta) => (
+            <div
+              key={alerta.id}
+              className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-amber-200 text-sm"
+            >
+              <span className="font-bold uppercase tracking-wide mr-2">
+                ⚠ Aviso SMN{alerta.localidades_pluviales_afectadas.length > 0 ? ' — Santa Sylvina' : ''}:
+              </span>
+              {alerta.titulo || alerta.descripcion}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16 relative z-10">
@@ -376,18 +400,15 @@ export function App() {
         onClose={() => setIsSOSModalOpen(false)}
         onSubmitSOS={handleCreateSOS}
       />
-
       <CitizenReportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         onSubmitReport={handleCreateReport}
       />
-
       <BasinDetailModal
         cuenca={selectedCuencaForModal}
         onClose={() => setSelectedCuencaForModal(null)}
       />
-
       <AIAdvisorModal
         isOpen={isSITREPModalOpen}
         onClose={() => setIsSITREPModalOpen(false)}
@@ -418,6 +439,7 @@ export function App() {
             <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400"> SAME: 107</span>
           </div>
         </div>
+
         <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[10px] text-slate-600 font-mono">
           © 2025 SENTINEL EMERGENCY HUB • SISTEMA INTEGRAL DE MONITOREO HIDROLÓGICO Y GESTIÓN DE EMERGENCIAS DEL CHACO
         </div>
