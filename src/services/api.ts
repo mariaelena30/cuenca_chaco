@@ -24,7 +24,6 @@
  * Si en el futuro sumás estos campos a main.py, se pueden sacar los
  * valores por defecto de acá y usar los reales directamente.
  */
-
 import {
   Cuenca,
   Localidad,
@@ -177,6 +176,39 @@ export async function obtenerBarriosReales(): Promise<Record<string, BarrioVulne
 }
 
 // ---------------------------------------------------------------------
+// ALERTAS SMN (Chaco en general + localidades pluviales sin rio, ej.
+// Santa Sylvina). Mismo patron que obtenerVertederos() de aca abajo.
+// ---------------------------------------------------------------------
+export interface AlertaSMN {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  nivel: string;
+  zona: string;
+  fuente: string;
+  localidades_pluviales_afectadas: string[];
+}
+
+export interface EstadoAlertasSMN {
+  alertas: AlertaSMN[];
+  cantidad: number;
+  ultima_verificacion: string | null;
+}
+
+export async function obtenerAlertasSMN(): Promise<EstadoAlertasSMN> {
+  return pedirJSON('/alertas');
+}
+
+export function alertasParaLocalidadPluvial(
+  estado: EstadoAlertasSMN,
+  claveLocalidad: string
+): AlertaSMN[] {
+  return estado.alertas.filter((a) =>
+    a.localidades_pluviales_afectadas.includes(claveLocalidad)
+  );
+}
+
+// ---------------------------------------------------------------------
 // VERTEDEROS (Itaipú/Yacyretá) - alerta temprana para el Paraná
 // ---------------------------------------------------------------------
 export interface EstadoVertedero {
@@ -200,42 +232,6 @@ export interface EstadoVertederos {
 
 export async function obtenerVertederos(): Promise<EstadoVertederos> {
   return pedirJSON('/vertederos');
-}
-
-// ---------------------------------------------------------------------
-// AGREGAR a src/services/api.ts, junto a obtenerVertederos() /
-// obtenerNotaTecnicaENSO() (mismo patron, mismo archivo).
-// ---------------------------------------------------------------------
-
-export interface AlertaSMN {
-  id: string;
-  titulo: string;
-  descripcion: string;
-  nivel: string;
-  zona: string;
-  fuente: string;
-  localidades_pluviales_afectadas: string[];
-}
-
-export interface EstadoAlertasSMN {
-  alertas: AlertaSMN[];
-  cantidad: number;
-  ultima_verificacion: string | null;
-}
-
-export async function obtenerAlertasSMN(): Promise<EstadoAlertasSMN> {
-  return pedirJSON('/alertas');
-}
-
-// Atajo para usar en el componente de Santa Sylvina (o cualquier otra
-// localidad pluvial): filtra solo las alertas que la mencionan por nombre.
-export function alertasParaLocalidadPluvial(
-  estado: EstadoAlertasSMN,
-  claveLocalidad: string
-): AlertaSMN[] {
-  return estado.alertas.filter((a) =>
-    a.localidades_pluviales_afectadas.includes(claveLocalidad)
-  );
 }
 
 // ---------------------------------------------------------------------
