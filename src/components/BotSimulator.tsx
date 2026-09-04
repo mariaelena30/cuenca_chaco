@@ -29,7 +29,7 @@ export const BotSimulator: React.FC<BotSimulatorProps> = ({ onTriggerSOS, onTrig
       remitente: 'bot',
       canal: 'telegram',
       texto:
-        '👋 <b>Bienvenido al Asistente Oficial del Portal Hídrico y Emergencias Chaco</b>.\n\nMonitoreo en tiempo real de los ríos Paraná, Bermejo, Paraguay y Pilcomayo.\n\nTocá los accesos rápidos o escribí tu consulta en lenguaje simple.',
+        '👋 <b>Bienvenido al Asistente Oficial del Portal Hídrico y Emergencias Chaco</b>.\n\nMonitoreo en tiempo real de los ríos Paraná, Bermejo, Paraguay y Río Negro.\n\nTocá los accesos rápidos o escribí tu consulta en lenguaje simple.',
       timestamp: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
       opciones: ['/estado', '/cuencas', '/alertas', '/sos', '/reportar', '/refugios'],
     },
@@ -106,7 +106,7 @@ export const BotSimulator: React.FC<BotSimulatorProps> = ({ onTriggerSOS, onTrig
         remitente: 'bot',
         canal: 'telegram',
         texto:
-          '👋 <b>Bienvenido al Asistente Oficial del Portal Hídrico y Emergencias Chaco</b>.\n\nMonitoreo en tiempo real de los ríos Paraná, Bermejo, Paraguay y Pilcomayo.\n\nTocá los accesos rápidos o escribí tu consulta en lenguaje simple.',
+          '👋 <b>Bienvenido al Asistente Oficial del Portal Hídrico y Emergencias Chaco</b>.\n\nMonitoreo en tiempo real de los ríos Paraná, Bermejo, Paraguay y Río Negro.\n\nTocá los accesos rápidos o escribí tu consulta en lenguaje simple.',
         timestamp: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
         opciones: ['/estado', '/cuencas', '/alertas', '/sos', '/reportar', '/refugios'],
       },
