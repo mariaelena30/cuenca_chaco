@@ -78,7 +78,7 @@ export const LocalitiesCarousel: React.FC<LocalitiesCarouselProps> = ({
     const key = (cuencaKey || '').toLowerCase();
     if (key.includes('bermejo')) return { badge: 'bg-amber-950/50 text-amber-300 border-amber-800/40', text: 'text-amber-300', dot: 'bg-amber-400' };
     if (key.includes('paraguay')) return { badge: 'bg-indigo-950/50 text-indigo-300 border-indigo-800/40', text: 'text-indigo-300', dot: 'bg-indigo-400' };
-    if (key.includes('pilcomayo')) return { badge: 'bg-teal-950/50 text-teal-300 border-teal-800/40', text: 'text-teal-300', dot: 'bg-teal-400' };
+    if (key.includes('rio_negro') || key.includes('negro')) return { badge: 'bg-slate-800/50 text-slate-300 border-slate-700/40', text: 'text-slate-300', dot: 'bg-slate-400' };
     return { badge: 'bg-sky-950/50 text-sky-300 border-sky-800/40', text: 'text-sky-300', dot: 'bg-sky-400' };
   };
 
