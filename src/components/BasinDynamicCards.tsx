@@ -107,15 +107,15 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
             <span>Río Paraguay</span>
           </button>
           <button
-            onClick={() => setSelectedCuencaTab('pilcomayo')}
+            onClick={() => setSelectedCuencaTab('rio_negro')}
             className={`px-2.5 py-1.5 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
-              selectedCuencaTab === 'pilcomayo'
-                ? 'bg-teal-950/80 text-teal-200 border border-teal-700/60 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-teal-300'
+              selectedCuencaTab === 'rio_negro'
+                ? 'bg-slate-700/80 text-slate-200 border border-slate-600/60 font-bold shadow-sm'
+                : 'text-slate-400 hover:text-slate-300'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-teal-400" />
-            <span>Río Pilcomayo</span>
+            <span className="w-2 h-2 rounded-full bg-slate-400" />
+            <span>Río Negro</span>
           </button>
         </div>
       </div>
@@ -184,14 +184,14 @@ export const BasinDynamicCards: React.FC<BasinDynamicCardsProps> = ({
               barColor: 'from-indigo-600 to-indigo-400',
               textColor: 'text-indigo-300',
             };
-          } else if (c.id === 'pilcomayo') {
+          } else if (c.id === 'rio_negro') {
             basinTheme = {
-              cardBg: 'from-teal-950/25 via-slate-900/80 to-slate-950/90',
-              borderColor: 'border-teal-900/40 hover:border-teal-700/60',
-              dotColor: 'bg-teal-400',
-              badgeBg: 'bg-teal-950/50 text-teal-300 border-teal-800/40',
-              barColor: 'from-teal-600 to-teal-400',
-              textColor: 'text-teal-300',
+              cardBg: 'from-slate-800/25 via-slate-900/80 to-slate-950/90',
+              borderColor: 'border-slate-700/40 hover:border-slate-600/60',
+              dotColor: 'bg-slate-400',
+              badgeBg: 'bg-slate-800/50 text-slate-300 border-slate-700/40',
+              barColor: 'from-slate-600 to-slate-400',
+              textColor: 'text-slate-300',
             };
           }
 
