@@ -3,19 +3,32 @@
   "short_name": "P. Hídrico Chaco",
   "description": "Monitoreo hidrológico en tiempo real, alerta temprana y botón SOS para Defensa Civil, Bomberos y vecinos del Chaco.",
   "start_url": "/?utm_source=pwa",
-  "id": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#020617",
-  "theme_color": "#020617",
+  "background_color": "#0F8617",
+  "theme_color": "#020817",
   "lang": "es-AR",
   "dir": "ltr",
-  "categories": ["weather", "utilities", "news"],
+  "categories": ["weather", "utilities"],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192 (2).png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
