@@ -1,5 +1,6 @@
 import React from 'react';
 import { InteractiveMap } from './InteractiveMap';
+import { MapaInfraestructura } from './MapaInfraestructura';
 import { Cuenca, Localidad, EstacionHidrometrica, BarrioVulnerable, TicketSOS, ReporteCiudadano } from '../types';
 import { BARRIOS_BARRANQUERAS, BARRIOS_VILELAS } from '../data/barriosVulnerables';
 
@@ -14,6 +15,9 @@ interface Props {
 
 // Centro aproximado de Barranqueras + Puerto Vilelas juntas
 const CENTRO_BARRANQUERAS_VILELAS: [number, number] = [-27.495, -58.93];
+
+// Centro aproximado de todo el AMGR (para el mapa de infraestructura)
+const CENTRO_AMGR: [number, number] = [-27.475, -58.96];
 
 export const MapasVulnerabilidad: React.FC<Props> = ({
   cuencas,
@@ -58,6 +62,21 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
           reportes={reportes}
           centroInicial={CENTRO_BARRANQUERAS_VILELAS}
           zoomInicial={13}
+        />
+      </section>
+
+      {/* MAPA 3: Infraestructura hídrica — bombeo, lagunas y ríos (fuente: APA) */}
+      <section>
+        <h2 className="text-base font-bold text-white mb-2">
+          Sistema de bombeo, lagunas y ríos (AMGR — APA)
+        </h2>
+        <p className="text-xs text-slate-400 mb-3">
+          Estaciones de bombeo, obras de control, lagunas de oxidación y cursos de agua del Área
+          Metropolitana del Gran Resistencia. Algunas ubicaciones son aproximadas — ver aviso en el mapa.
+        </p>
+        <MapaInfraestructura
+          centroInicial={CENTRO_AMGR}
+          zoomInicial={12}
         />
       </section>
     </div>
