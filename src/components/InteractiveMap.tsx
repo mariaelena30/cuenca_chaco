@@ -28,6 +28,12 @@ interface InteractiveMapProps {
   reportes: ReporteCiudadano[];
   onSelectLocalidad?: (loc: Localidad) => void;
   onSelectBarrio?: (barrio: BarrioVulnerable) => void;
+  // Opcionales: si no se pasan, el mapa se comporta exactamente como antes
+  // (centrado en toda la provincia del Chaco). Se usan para mostrar un
+  // segundo mapa con el zoom puesto en una localidad puntual, como
+  // Barranqueras, sin tocar el comportamiento del mapa general.
+  centroInicial?: [number, number];
+  zoomInicial?: number;
 }
 
 export const InteractiveMap: React.FC<InteractiveMapProps> = ({
@@ -39,6 +45,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   reportes,
   onSelectLocalidad,
   onSelectBarrio,
+  centroInicial,
+  zoomInicial,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -80,10 +88,12 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      // Initialize Leaflet Map centered on Chaco Province (-26.5, -60.0)
+      // Initialize Leaflet Map. Si se pasan centroInicial/zoomInicial (para
+      // un mapa enfocado, ej. Barranqueras), se usan esos; si no, se
+      // mantiene el comportamiento original centrado en Chaco.
       const map = L.map(mapContainerRef.current, {
-        center: [-26.5, -59.8],
-        zoom: 7,
+        center: centroInicial || [-26.5, -59.8],
+        zoom: zoomInicial || 7,
         minZoom: 5,
         maxZoom: 16,
       });
@@ -187,7 +197,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           <h4 style="margin: 0; font-weight: 800; font-size: 14px; color: #0f172a;">${loc.nombre}</h4>
           <p style="margin: 2px 0 6px 0; font-size: 11px; color: #64748b;">Cuenca: ${loc.cuenca_clave}</p>
           <div style="background: #f8fafc; padding: 6px; border-radius: 6px; font-size: 11px; border: 1px solid #e2e8f0;">
-            <div><b>Nivel actual:</b> ${loc.nivel_metros.toFixed(2)} m</div>
+            <div><b>Nivel actual:</b> ${loc.nivel_metros !== null ? loc.nivel_metros.toFixed(2) + ' m' : 'SIN DATO'}</div>
             <div><b>Alerta / Evacuación:</b> ${loc.umbral_alerta}m / ${loc.umbral_evacuacion}m</div>
             <div><b>Lluvia acum:</b> ${loc.precipitacion_acumulada_mm} mm</div>
           </div>
@@ -261,7 +271,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           <p style="margin: 0 0 4px 0; font-size: 11px; color: #475569;">${b.localidad_padre}</p>
           <div style="background: #fff1f2; padding: 6px; border-radius: 6px; font-size: 11px; border: 1px solid #fecdd3;">
             <div><b>Motivo / Riesgo:</b> ${b.motivo}</div>
-            ${b.direccion_referencia ? `<div><b>Referencia:</b> ${b.direccion_referencia}</div>` : ''}
+            ${b.familias_estimadas ? `<div><b>Familias:</b> ${b.familias_estimadas}</div>` : ''}
             ${b.via_acceso_critica ? `<div><b>Vía de acceso:</b> ${b.via_acceso_critica}</div>` : ''}
           </div>
         </div>
