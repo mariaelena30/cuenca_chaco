@@ -62,7 +62,7 @@ export const BARRIOS_BARRANQUERAS: Record<string, BarrioVulnerable> = {
     estado_actual: 'RIESGO_ALTO',
   },
   la_limita: {
-    id: 'la_limita', nombre: 'La Limita', localidad_padre: 'barranqueras',
+    id: 'la_lomita', nombre: 'La Lomita', localidad_padre: 'barranqueras',
     lat: CENTROIDE_BARRANQUERAS.lat, lon: CENTROIDE_BARRANQUERAS.lon, precision: 'aproximada',
     motivo: 'RENABAP — barrio popular censado', familias_estimadas: 220,
     estado_actual: 'RIESGO_ALTO',
