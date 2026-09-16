@@ -194,15 +194,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span>Mapa SIG & Riesgo</span>
           </button>
           <button
-  onClick={() => setActiveTab('vulnerabilidad')}
-  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
-    activeTab === 'vulnerabilidad'
-      ? 'bg-slate-200 text-slate-950 font-bold shadow-sm'
-      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-  }`}
->
-  <ShieldAlert className="w-3.5 h-3.5" />
-  <span>Zonas Vulnerables</span>
+           onClick={() => setActiveTab('vulnerabilidad')}
+           className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
+             activeTab === 'vulnerabilidad'
+               ? 'bg-slate-200 text-slate-950 font-bold shadow-sm'
+               : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+           }`}
+         >
+         <ShieldAlert className="w-3.5 h-3.5" />
+         <span>Zonas Vulnerables</span>
 </button>
           <button
             onClick={() => setActiveTab('operativo')}
