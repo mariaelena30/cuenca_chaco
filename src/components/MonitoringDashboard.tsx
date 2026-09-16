@@ -1,6 +1,3 @@
-import { GuiaAccionInundacion, NumerosUtilesEmergencia } from './GuiaAccionInundacion';
-import { PueblosOriginarios } from './PueblosOriginarios';
-import { MapaClimaGlobal } from './MapaClimaGlobal';
 import React from 'react';
 import {
   Cuenca,
@@ -39,6 +36,12 @@ interface MonitoringDashboardProps {
   onOpenReport?: () => void;
   onOpenTelefonos?: () => void;
 }
+
+// NOTA: MapaClimaGlobal, GuiaAccionInundacion, NumerosUtilesEmergencia y
+// PueblosOriginarios se movieron a la pestana "Recursos"
+// (RecursosComunidad.tsx) para que esta pantalla principal no quede
+// gigante -- en una emergencia real la gente necesita ver el estado de
+// los rios y reportar rapido, no scrollear.
 
 export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   cuencas,
@@ -81,11 +84,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           onOpenScanner={onOpenScanner}
         />
       </section>
-      <section><MapaClimaGlobal /></section>
-      <section><GuiaAccionInundacion /></section>
-      <section><NumerosUtilesEmergencia /></section>
-      <section><PueblosOriginarios localidades={localidades} />
-      </section>
+
       {/* SECCIÓN DESTACADA: ¿DÓNDE Y CÓMO PEDIR AYUDA? - LÍNEAS DE EMERGENCIA Y REPORTE DE ANEGAMIENTO */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 border border-slate-700/90 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-3 border-b border-slate-800">
