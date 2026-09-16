@@ -8,11 +8,12 @@ import {
   PlusCircle,
   Compass,
   PhoneCall,
+  BookOpen,
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'historico';
-  setActiveTab: (tab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'historico') => void;
+  activeTab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico';
+  setActiveTab: (tab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico') => void;
   onOpenSOS: () => void;
   onOpenReport: () => void;
   onOpenSITREP: () => void;
@@ -193,6 +194,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Compass className="w-3.5 h-3.5" />
             <span>Mapa SIG & Riesgo</span>
           </button>
+
           <button
             onClick={() => setActiveTab('vulnerabilidad')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
@@ -218,6 +220,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             {sosPendingCount > 0 && (
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('recursos')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === 'recursos'
+                ? 'bg-slate-200 text-slate-950 font-bold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Recursos</span>
           </button>
 
           <button
