@@ -11,8 +11,8 @@ import {
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'monitoreo' | 'mapa' | 'operativo' | 'historico';
-  setActiveTab: (tab: 'monitoreo' | 'mapa' | 'operativo' | 'historico') => void;
+  activeTab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'historico';
+  setActiveTab: (tab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'historico') => void;
   onOpenSOS: () => void;
   onOpenReport: () => void;
   onOpenSITREP: () => void;
