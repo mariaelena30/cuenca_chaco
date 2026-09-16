@@ -42,6 +42,7 @@ import {
 import { MonitoringDashboard } from './components/MonitoringDashboard';
 import { InteractiveMap } from './components/InteractiveMap';
 import { MapasVulnerabilidad } from './components/MapasVulnerabilidad';
+import { RecursosComunidad } from './components/RecursosComunidad';
 import { HydroTrends } from './components/HydroTrends';
 import { CivilDefenseDispatch } from './components/CivilDefenseDispatch';
 import { BotSimulator } from './components/BotSimulator';
@@ -61,7 +62,7 @@ const BARRIOS_INICIALES: Record<string, BarrioVulnerable> = {
 
 export function App() {
   const [activeTab, setActiveTab] = useState<
-    'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'bot' | 'kanban' | 'historico'
+    'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico'
   >('monitoreo');
 
   // Application State
@@ -397,6 +398,10 @@ export function App() {
             onUpdateTask={handleUpdateTask}
             onCreateTask={handleCreateTask}
           />
+        )}
+
+        {activeTab === 'recursos' && (
+          <RecursosComunidad localidades={localidades} />
         )}
 
         {activeTab === 'historico' && (
