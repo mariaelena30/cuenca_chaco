@@ -193,7 +193,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Compass className="w-3.5 h-3.5" />
             <span>Mapa SIG & Riesgo</span>
           </button>
-
           <button
             onClick={() => setActiveTab('vulnerabilidad')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
