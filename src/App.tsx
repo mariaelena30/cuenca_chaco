@@ -67,8 +67,6 @@ export function App() {
   // Application State
   const [cuencas, setCuencas] = useState<Record<string, Cuenca>>(CUENCAS_DETALLE);
   const [localidades, setLocalidades] = useState<Record<string, Localidad>>(LOCALIDADES_DETALLE);
-  // FIX: antes había dos useState para 'barrios' (error de compilación).
-  // Queda solo este, que ya incluye los barrios RENABAP de Barranqueras y Vilelas.
   const [barrios, setBarrios] = useState<Record<string, BarrioVulnerable>>(BARRIOS_INICIALES);
   const [estaciones, setEstaciones] = useState<EstacionHidrometrica[]>(ESTACIONES_HIDROMETRICAS);
   const [ticketsSOS, setTicketsSOS] = useState<TicketSOS[]>(TICKETS_SOS_INICIALES);
@@ -92,13 +90,6 @@ export function App() {
   const [isSITREPModalOpen, setIsSITREPModalOpen] = useState(false);
   const [selectedCuencaForModal, setSelectedCuencaForModal] = useState<Cuenca | null>(null);
 
-  // Trae datos REALES de tu backend.
-  // NOTA: estaciones hidrometricas todavia no tiene un endpoint propio en
-  // el backend (cuencas-bot solo expone /historico/{estacion} para UNA
-  // estacion a la vez, no un listado). Hasta que se sume ese endpoint,
-  // se queda con los datos de referencia de chacoData.ts (igual que
-  // recursos, refugios, pre-alertas y kanban). Ver pendiente en el Word
-  // de "Pendientes_Portal_Hidrico_Chaco.docx", sección 2.
   const refreshData = async () => {
     const resultados = await Promise.allSettled([
       obtenerCuencasReales(),
@@ -117,9 +108,6 @@ export function App() {
     if (resLocs.status === 'fulfilled') setLocalidades(resLocs.value);
     else console.warn('No se pudo traer /localidades:', resLocs.reason);
 
-    // FIX: antes había dos bloques if/else seguidos para 'barrios' (el
-    // primero se ejecutaba y al toque lo pisaba el segundo). Queda solo
-    // este, que sí fusiona con los barrios RENABAP.
     if (resBarrios.status === 'fulfilled') {
       setBarrios({ ...resBarrios.value, ...BARRIOS_BARRANQUERAS, ...BARRIOS_VILELAS });
     } else {
@@ -142,7 +130,6 @@ export function App() {
     return () => clearInterval(intervalo);
   }, []);
 
-  // Handlers for state updates
   const handleCreateSOS = async (ticket: Partial<TicketSOS>) => {
     try {
       const ticketCreado = await crearSOSReal(ticket);
@@ -312,7 +299,6 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white relative overflow-x-hidden font-sans">
-      {/* Immersive radial gradient and dot matrix overlay */}
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_#0f172a_0%,_#020617_100%)] opacity-80 z-0" />
       <div
         className="fixed inset-0 pointer-events-none opacity-20 z-0"
@@ -322,7 +308,6 @@ export function App() {
         }}
       />
 
-      {/* Top Navigation */}
       <div className="relative z-10">
         <Navbar
           activeTab={activeTab}
@@ -351,7 +336,6 @@ export function App() {
         </div>
       )}
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-16 relative z-10">
         {activeTab === 'monitoreo' && (
           <MonitoringDashboard
@@ -372,14 +356,9 @@ export function App() {
             barrios={barrios}
             ticketsSOS={ticketsSOS}
             reportes={reportes}
-            refugios={refugios}
           />
         )}
 
-        {/* Pestaña nueva: los 3 mapas de vulnerabilidad (RENABAP general,
-            zoom Barranqueras/Vilelas, e infraestructura de bombeo/lagunas/ríos).
-            No reemplaza la pestaña 'mapa' que ya andaba. Falta agregar el
-            botón correspondiente en Navbar.tsx. */}
         {activeTab === 'vulnerabilidad' && (
           <MapasVulnerabilidad
             cuencas={cuencas}
@@ -428,7 +407,6 @@ export function App() {
         )}
       </main>
 
-      {/* Modals */}
       <EmergencySOSModal
         isOpen={isSOSModalOpen}
         onClose={() => setIsSOSModalOpen(false)}
@@ -448,7 +426,6 @@ export function App() {
         onClose={() => setIsSITREPModalOpen(false)}
       />
 
-      {/* Command Center Telemetry Footer */}
       <footer className="relative z-10 bg-slate-950/90 border-t border-slate-800/80 backdrop-blur-xl text-slate-400 py-6 px-4 sm:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-[10px] font-mono uppercase tracking-widest text-slate-500">
