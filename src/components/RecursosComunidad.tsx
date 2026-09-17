@@ -18,7 +18,6 @@ interface RecursosComunidadProps {
 export const RecursosComunidad: React.FC<RecursosComunidadProps> = ({ localidades }) => {
   return (
     <div className="space-y-6 pb-10">
-      <section><MapaClimaGlobal /></section>
       <section><GuiaAccionInundacion /></section>
       <section><NumerosUtilesEmergencia /></section>
       <section><PueblosOriginarios localidades={localidades} /></section>
