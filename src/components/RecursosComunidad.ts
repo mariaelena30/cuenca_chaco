@@ -1,7 +1,6 @@
 import React from 'react';
 import { GuiaAccionInundacion, NumerosUtilesEmergencia } from './GuiaAccionInundacion';
 import { PueblosOriginarios } from './PueblosOriginarios';
-import { MapaClimaGlobal } from './MapaClimaGlobal';
 import { Localidad } from '../types';
 
 interface RecursosComunidadProps {
