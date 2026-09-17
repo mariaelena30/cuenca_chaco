@@ -6,14 +6,13 @@ import {
   AlertTriangle,
   Activity,
   PlusCircle,
-  Compass,
   PhoneCall,
   BookOpen,
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico';
-  setActiveTab: (tab: 'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico') => void;
+  activeTab: 'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico';
+  setActiveTab: (tab: 'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico') => void;
   onOpenSOS: () => void;
   onOpenReport: () => void;
   onOpenSITREP: () => void;
@@ -184,18 +183,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('mapa')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'mapa'
-                ? 'bg-slate-200 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Mapa SIG & Riesgo</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('vulnerabilidad')}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
               activeTab === 'vulnerabilidad'
@@ -205,21 +192,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <ShieldAlert className="w-3.5 h-3.5" />
             <span>Zonas Vulnerables</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('operativo')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'operativo'
-                ? 'bg-slate-200 text-slate-950 font-bold shadow-sm'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Centro Operativo</span>
-            {sosPendingCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            )}
           </button>
 
           <button
