@@ -40,13 +40,9 @@ import {
   EstadoAlertasSMN,
 } from './services/api';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
-import { InteractiveMap } from './components/InteractiveMap';
 import { MapasVulnerabilidad } from './components/MapasVulnerabilidad';
 import { RecursosComunidad } from './components/RecursosComunidad';
 import { HydroTrends } from './components/HydroTrends';
-import { CivilDefenseDispatch } from './components/CivilDefenseDispatch';
-import { BotSimulator } from './components/BotSimulator';
-import { KanbanWorkflow } from './components/KanbanWorkflow';
 import { EmergencySOSModal } from './components/EmergencySOSModal';
 import { CitizenReportModal } from './components/CitizenReportModal';
 import { BasinDetailModal } from './components/BasinDetailModal';
@@ -62,7 +58,7 @@ const BARRIOS_INICIALES: Record<string, BarrioVulnerable> = {
 
 export function App() {
   const [activeTab, setActiveTab] = useState<
-    'monitoreo' | 'mapa' | 'vulnerabilidad' | 'operativo' | 'recursos' | 'historico'
+    'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico'
   >('monitoreo');
 
   // Application State
@@ -345,18 +341,7 @@ export function App() {
             estaciones={estaciones}
             barrios={barrios}
             onSelectCuenca={(c) => setSelectedCuencaForModal(c)}
-            onSelectLocalidad={() => setActiveTab('mapa')}
-          />
-        )}
-
-        {activeTab === 'mapa' && (
-          <InteractiveMap
-            cuencas={cuencas}
-            localidades={localidades}
-            estaciones={estaciones}
-            barrios={barrios}
-            ticketsSOS={ticketsSOS}
-            reportes={reportes}
+            onSelectLocalidad={() => setActiveTab('vulnerabilidad')}
           />
         )}
 
@@ -368,35 +353,6 @@ export function App() {
             barrios={barrios}
             ticketsSOS={ticketsSOS}
             reportes={reportes}
-          />
-        )}
-
-        {activeTab === 'operativo' && (
-          <CivilDefenseDispatch
-            ticketsSOS={ticketsSOS}
-            reportes={reportes}
-            recursos={recursos}
-            refugios={refugios}
-            alertasPreVerificacion={alertasPreVerificacion}
-            onUpdateTicketStatus={handleUpdateTicketStatus}
-            onApprovePreAlerta={handleApprovePreAlerta}
-            onUpdateShelterOccupancy={handleUpdateShelterOccupancy}
-            onUpdateResourceStatus={handleUpdateResourceStatus}
-          />
-        )}
-
-        {activeTab === 'bot' && (
-          <BotSimulator
-            onTriggerSOS={() => setIsSOSModalOpen(true)}
-            onTriggerReport={() => setIsReportModalOpen(true)}
-          />
-        )}
-
-        {activeTab === 'kanban' && (
-          <KanbanWorkflow
-            tasks={kanbanTasks}
-            onUpdateTask={handleUpdateTask}
-            onCreateTask={handleCreateTask}
           />
         )}
 
