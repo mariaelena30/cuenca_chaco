@@ -8,6 +8,7 @@ import {
 import { LocalitiesCarousel } from './LocalitiesCarousel';
 import { BasinDynamicCards } from './BasinDynamicCards';
 import { VulnerableAreasGrid } from './VulnerableAreasGrid';
+import { MapaClimaGlobal } from './MapaClimaGlobal';
 import {
   Droplets,
   CloudRain,
@@ -36,12 +37,6 @@ interface MonitoringDashboardProps {
   onOpenReport?: () => void;
   onOpenTelefonos?: () => void;
 }
-
-// NOTA: MapaClimaGlobal, GuiaAccionInundacion, NumerosUtilesEmergencia y
-// PueblosOriginarios se movieron a la pestana "Recursos"
-// (RecursosComunidad.tsx) para que esta pantalla principal no quede
-// gigante -- en una emergencia real la gente necesita ver el estado de
-// los rios y reportar rapido, no scrollear.
 
 export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
   cuencas,
@@ -84,6 +79,9 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           onOpenScanner={onOpenScanner}
         />
       </section>
+
+      {/* 4. Clima en vivo (Windy) - vuelve a la pantalla principal */}
+      <section><MapaClimaGlobal /></section>
 
       {/* SECCIÓN DESTACADA: ¿DÓNDE Y CÓMO PEDIR AYUDA? - LÍNEAS DE EMERGENCIA Y REPORTE DE ANEGAMIENTO */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 border border-slate-700/90 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
