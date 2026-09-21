@@ -40,7 +40,7 @@ import {
   EstadoAlertasSMN,
 } from './services/api';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
-import { MapasVulnerabilidad } from './components/MapasVulnerabilidad';
+import { MapasVilelasMejorado } from './components/MapasVilelas_MEJORADO';
 import { RecursosComunidad } from './components/RecursosComunidad';
 import { HydroTrends } from './components/HydroTrends';
 import { EmergencySOSModal } from './components/EmergencySOSModal';
