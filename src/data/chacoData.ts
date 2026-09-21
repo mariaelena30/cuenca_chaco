@@ -919,7 +919,7 @@ export const RECURSOS_OPERATIVOS_DATA: RecursoOperativo[] = [
     base_localidad: 'Resistencia',
     estado: 'DISPONIBLE',
     tripulacion_cantidad: 3,
-    contacto_radio: 'SAME 107 / Red Provincial',
+    contacto_radio: ' Uccem 107 / Red Provincial',
   },
   {
     id: 'rec_4',
@@ -1227,7 +1227,7 @@ export const CONTACTOS_EMERGENCIA = [
     localidad: 'Provincial',
     descripcion: 'Coordinación general de emergencias, inundaciones y evacuación 24hs.',
     tipo: 'DEFENSA_CIVIL',
-    whatsapp: '3624-453535',
+    whatsapp: '3625-299957',
   },
   {
     entidad: 'Defensa Civil / Guardia Barranqueras',
@@ -1236,16 +1236,16 @@ export const CONTACTOS_EMERGENCIA = [
     localidad: 'Barranqueras',
     descripcion: 'Guardia activa de emergencias municipales y anegamientos en Barranqueras.',
     tipo: 'DEFENSA_CIVIL',
-    whatsapp: '3624-383177',
+    whatsapp: '3625-162913',
   },
   {
     entidad: 'Defensa Civil Municipal Resistencia',
     telefono: '103',
-    telefonoAlt: '(0362) 4458301',
+    telefonoAlt: '(0362) 5299957',
     localidad: 'Resistencia',
     descripcion: 'Comando de emergencias y reclamos pluviales en Resistencia.',
     tipo: 'DEFENSA_CIVIL',
-    whatsapp: '3624-458301',
+    whatsapp: '3625-162913',
   },
   {
     entidad: 'Bomberos de la Policía - Barranqueras',
