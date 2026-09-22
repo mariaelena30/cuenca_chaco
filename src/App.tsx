@@ -47,6 +47,7 @@ import { EmergencySOSModal } from './components/EmergencySOSModal';
 import { CitizenReportModal } from './components/CitizenReportModal';
 import { BasinDetailModal } from './components/BasinDetailModal';
 import { AIAdvisorModal } from './components/AIAdvisorModal';
+import MapasVulnerabilidad from './components/MapasVulnerabilidad';
 
 // Barrios RENABAP (Barranqueras + Vilelas) fusionados con los que ya
 // tenias en chacoData.ts. Esto es lo que se ve apenas carga la app.
