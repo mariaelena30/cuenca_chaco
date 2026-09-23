@@ -1,32 +1,13 @@
-import React, { useState } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 import { Cuenca, Localidad, BarrioVulnerable, TicketSOS, ReporteCiudadano } from '../types';
 import { BARRIOS_VILELAS } from '../data/barriosVulnerables';
 import { OBRAS_HIDRAULICAS_VILELAS, CENTROS_EVACUACION_VILELAS, CAPACIDAD_TOTAL_REFUGIOS } from '../data/obrasVilelas';
 
-// CARGA DINÁMICA DE LEAFLET PARA EVITAR ERROR SSR
-const MapContainer = dynamic(() => import('react-leaflet').then((mod) => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import('react-leaflet').then((mod) => mod.TileLayer), { ssr: false });
-const Polygon = dynamic(() => import('react-leaflet').then((mod) => mod.Polygon), { ssr: false });
-const Circle = dynamic(() => import('react-leaflet').then((mod) => mod.Circle), { ssr: false });
-const Marker = dynamic(() => import('react-leaflet').then((mod) => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import('react-leaflet').then((mod) => mod.Popup), { ssr: false });
-const LayersControl = dynamic(() => import('react-leaflet').then((mod) => mod.LayersControl), { ssr: false });
-// NOTA: react-leaflet expone LayersControl.Overlay como propiedad estática del
-// componente LayersControl real (el de 'react-leaflet', no el wrapper dynamic()).
-// Al envolver LayersControl con next/dynamic() se pierde esa propiedad estática,
-// así que la importamos también como su propio componente dinámico y la usamos
-// directo, en vez de "LayersControl.Overlay".
-const LayersControlOverlay = dynamic(() => import('react-leaflet').then((mod) => mod.LayersControl.Overlay), { ssr: false });
-
-// Hook para controlar la cámara
-const MapController = ({ centro, zoom }: { centro: [number, number]; zoom: number }) => {
-  const map = require('react-leaflet').useMap();
-  React.useEffect(() => {
-    if (centro) map.flyTo(centro, zoom, { animate: true, duration: 1.5 });
-  }, [centro, zoom, map]);
-  return null;
-};
+// CORRECCIÓN CLAVE: reescrito con Leaflet puro (`leaflet`), igual que
+// InteractiveMap.tsx. `react-leaflet` no está instalado en este proyecto
+// (no figura en package.json) y era la causa del ReferenceError en
+// producción.
 
 interface Props {
   cuencas: Record<string, Cuenca>;
@@ -38,11 +19,7 @@ interface Props {
 
 const CENTRO_VILELAS: [number, number] = [-27.5044196, -58.9385416];
 
-/**
- * Genera polígonos aproximados para barrios basado en su ubicación
- * y un buffer pequeño (simula perímetro real)
- */
-function generarPoligonoBarrio(lat: number, lon: number, bufferGrados: number = 0.006) {
+function generarPoligonoBarrio(lat: number, lon: number, bufferGrados: number = 0.006): [number, number][] {
   return [
     [lat - bufferGrados, lon - bufferGrados],
     [lat + bufferGrados, lon - bufferGrados],
@@ -58,17 +35,16 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
   ticketsSOS,
   reportes,
 }) => {
-  const [camara, setCamara] = useState<{ centro: [number, number]; zoom: number }>({
-    centro: CENTRO_VILELAS,
-    zoom: 14,
-  });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const layersRef = useRef<{
+    barrios: L.LayerGroup;
+    obras: L.LayerGroup;
+    refugios: L.LayerGroup;
+    sos: L.LayerGroup;
+  } | null>(null);
 
-  const [filtroVisibilidad, setFiltroVisibilidad] = useState<{
-    barrios: boolean;
-    obras: boolean;
-    refugios: boolean;
-    sos: boolean;
-  }>({
+  const [filtroVisibilidad, setFiltroVisibilidad] = useState({
     barrios: true,
     obras: true,
     refugios: true,
@@ -78,22 +54,176 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
   const obtenerColorEstado = (estado: string) => {
     switch (estado) {
       case 'RIESGO_ALTO':
-        return '#ef4444'; // rojo
+        return '#ef4444';
       case 'RIESGO_MEDIO':
-        return '#f97316'; // naranja
+        return '#f97316';
       case 'SEGURO':
-        return '#10b981'; // verde
+        return '#10b981';
       default:
-        return '#64748b'; // gris
+        return '#64748b';
     }
   };
 
-  const obtenerIconoObra = (prioridad: number) => {
-    if (prioridad === 1) return '🔴'; // máxima
-    if (prioridad <= 2) return '🟠'; // alta
-    if (prioridad <= 3) return '🟡'; // media
-    return '🟢'; // baja
+  const toggleFiltro = (key: keyof typeof filtroVisibilidad) => {
+    setFiltroVisibilidad((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      const layers = layersRef.current;
+      const map = mapInstanceRef.current;
+      if (layers && map) {
+        if (next[key]) layers[key].addTo(map);
+        else layers[key].remove();
+      }
+      return next;
+    });
   };
+
+  // Inicializa el mapa una sola vez
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
+
+    const map = L.map(mapContainerRef.current, {
+      center: CENTRO_VILELAS,
+      zoom: 14,
+      minZoom: 10,
+      maxZoom: 19,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    const layerBarrios = L.layerGroup().addTo(map);
+    const layerObras = L.layerGroup().addTo(map);
+    const layerRefugios = L.layerGroup().addTo(map);
+    const layerSOS = L.layerGroup().addTo(map);
+
+    layersRef.current = { barrios: layerBarrios, obras: layerObras, refugios: layerRefugios, sos: layerSOS };
+    mapInstanceRef.current = map;
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, []);
+
+  // Redibuja capas cuando cambian los datos
+  useEffect(() => {
+    const layers = layersRef.current;
+    if (!layers) return;
+
+    layers.barrios.clearLayers();
+    layers.obras.clearLayers();
+    layers.refugios.clearLayers();
+    layers.sos.clearLayers();
+
+    // CAPA 1: Barrios RENABAP (polígonos)
+    Object.values(BARRIOS_VILELAS).forEach((barrio) => {
+      const poligono = L.polygon(generarPoligonoBarrio(barrio.lat, barrio.lon, 0.008), {
+        color: obtenerColorEstado(barrio.estado_actual),
+        weight: 3,
+        opacity: 0.7,
+        fillOpacity: 0.3,
+        dashArray: '5, 5',
+      });
+      poligono.bindPopup(`
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width:180px;">
+          <div style="font-weight:800; font-size:13px;">${barrio.nombre}</div>
+          <div style="font-size:11px;">Precisión: ${barrio.precision}</div>
+          <div style="font-size:11px;">Familias: ${barrio.familias_estimadas || 'N/A'}</div>
+          <div style="font-size:11px;">Estado: ${barrio.estado_actual}</div>
+          <div style="font-size:10px; color:#94a3b8; margin-top:4px;">${barrio.lat.toFixed(6)}, ${barrio.lon.toFixed(6)}</div>
+        </div>
+      `);
+      layers.barrios.addLayer(poligono);
+    });
+
+    // CAPA 2: Obras de infraestructura (marcador + círculo de alcance)
+    OBRAS_HIDRAULICAS_VILELAS.forEach((obra) => {
+      const marker = L.marker([obra.lat, obra.lon]);
+      marker.bindPopup(`
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width:220px;">
+          <div style="font-weight:800; font-size:13px; background:#0f172a; color:#fff; padding:2px 6px; border-radius:4px; display:inline-block;">
+            Obra ${obra.numero}: ${obra.nombre}
+          </div>
+          <div style="font-size:11px; margin-top:6px;"><b>Descripción:</b> ${obra.descripcion}</div>
+          <div style="font-size:11px;"><b>Ubicación:</b> ${obra.ubicacion_referencia}</div>
+          ${obra.extension_m ? `<div style="font-size:11px;"><b>Extensión:</b> ${obra.extension_m.toLocaleString()} m</div>` : ''}
+          <div style="font-size:11px;"><b>Plazo:</b> ${obra.plazo_estimado}</div>
+          <div style="font-size:11px; font-weight:700; color:${obra.estado_actual === 'CONFIRMADA' ? '#059669' : '#d97706'};">
+            ${obra.estado_actual}
+          </div>
+          <div style="font-size:10px; color:#94a3b8; margin-top:4px;">${obra.lat.toFixed(6)}, ${obra.lon.toFixed(6)}</div>
+        </div>
+      `);
+      layers.obras.addLayer(marker);
+
+      const circulo = L.circle([obra.lat, obra.lon], {
+        radius: obra.extension_m || 500,
+        color: obra.prioridad <= 2 ? '#ef4444' : '#f97316',
+        weight: 1,
+        opacity: 0.2,
+        fillOpacity: 0.05,
+      });
+      layers.obras.addLayer(circulo);
+    });
+
+    // CAPA 3: Centros de evacuación
+    CENTROS_EVACUACION_VILELAS.forEach((centro) => {
+      const circulo = L.circle([centro.lat, centro.lon], {
+        radius: 300,
+        color: '#10b981',
+        weight: 2,
+        opacity: 0.6,
+        fillOpacity: 0.2,
+      });
+      circulo.bindPopup(`
+        <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width:220px;">
+          <div style="font-weight:800; font-size:13px; background:#065f46; color:#fff; padding:2px 6px; border-radius:4px; display:inline-block;">
+            ${centro.nombre}
+          </div>
+          <div style="font-size:11px; margin-top:6px;"><b>Capacidad:</b> ${centro.capacidad_personas} personas</div>
+          <div style="font-size:11px;"><b>Familias:</b> ${centro.capacidad_familias_estimadas || 'N/A'}</div>
+          <div style="font-size:11px; margin-top:4px;">
+            ${centro.agua_potable ? '✓' : '✗'} Agua potable<br/>
+            ${centro.electricidad ? '✓' : '✗'} Electricidad<br/>
+            ${centro.cocina_comedor ? '✓' : '✗'} Cocina/Comedor<br/>
+            ${centro.acceso_discapacitados ? '✓' : '✗'} Acceso discapacitados
+          </div>
+          ${
+            centro.barrios_cobertura && centro.barrios_cobertura.length > 0
+              ? `<div style="font-size:11px; margin-top:4px;"><b>Barrios próximos:</b> ${centro.barrios_cobertura.join(', ')}</div>`
+              : ''
+          }
+          <div style="font-size:10px; color:#94a3b8; margin-top:4px;">${centro.lat.toFixed(6)}, ${centro.lon.toFixed(6)}</div>
+        </div>
+      `);
+      layers.refugios.addLayer(circulo);
+    });
+
+    // CAPA 4: Alertas SOS activas
+    ticketsSOS
+      .filter((t) => t.estado === 'PENDIENTE' || t.estado === 'DESPACHADO')
+      .forEach((ticket) => {
+        const circulo = L.circle([ticket.lat, ticket.lon], {
+          radius: 150,
+          color: ticket.nivelUrgencia === 'MÁXIMO' ? '#dc2626' : '#ea580c',
+          weight: 2,
+          opacity: 0.8,
+          fillOpacity: 0.3,
+        });
+        circulo.bindPopup(`
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; min-width:180px;">
+            <div style="font-weight:800; font-size:13px; color:#dc2626;">${ticket.nombre}</div>
+            <div style="font-size:11px;">📍 ${ticket.direccion}</div>
+            <div style="font-size:11px;">Personas: ${ticket.personasAfectadas}</div>
+            <div style="font-size:11px;">Urgencia: ${ticket.nivelUrgencia}</div>
+            <div style="font-size:10px; color:#94a3b8;">Estado: ${ticket.estado}</div>
+          </div>
+        `);
+        layers.sos.addLayer(circulo);
+      });
+  }, [ticketsSOS]);
 
   return (
     <div className="space-y-4">
@@ -109,13 +239,13 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
           </p>
         </div>
 
-        {/* CONTROLES DE VISIBILIDAD */}
+        {/* CONTROLES DE VISIBILIDAD (reemplazan al LayersControl de react-leaflet) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <label className="flex items-center gap-2 cursor-pointer p-2 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition">
             <input
               type="checkbox"
               checked={filtroVisibilidad.barrios}
-              onChange={(e) => setFiltroVisibilidad({ ...filtroVisibilidad, barrios: e.target.checked })}
+              onChange={() => toggleFiltro('barrios')}
               className="w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-300">🏘️ Barrios RENABAP</span>
@@ -124,7 +254,7 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
             <input
               type="checkbox"
               checked={filtroVisibilidad.obras}
-              onChange={(e) => setFiltroVisibilidad({ ...filtroVisibilidad, obras: e.target.checked })}
+              onChange={() => toggleFiltro('obras')}
               className="w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-300">⚙️ 7 Obras (APA)</span>
@@ -133,7 +263,7 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
             <input
               type="checkbox"
               checked={filtroVisibilidad.refugios}
-              onChange={(e) => setFiltroVisibilidad({ ...filtroVisibilidad, refugios: e.target.checked })}
+              onChange={() => toggleFiltro('refugios')}
               className="w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-300">🏠 Centros Evacuación</span>
@@ -142,7 +272,7 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
             <input
               type="checkbox"
               checked={filtroVisibilidad.sos}
-              onChange={(e) => setFiltroVisibilidad({ ...filtroVisibilidad, sos: e.target.checked })}
+              onChange={() => toggleFiltro('sos')}
               className="w-4 h-4"
             />
             <span className="text-xs font-semibold text-slate-300">🆘 Alertas SOS</span>
@@ -153,23 +283,17 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
           <div className="p-3 bg-slate-950/60 rounded border border-slate-800">
             <div className="text-slate-500 uppercase font-bold tracking-wider">Barrios RENABAP</div>
-            <div className="text-2xl font-bold text-red-400 mt-1">
-              {Object.values(BARRIOS_VILELAS).length}
-            </div>
+            <div className="text-2xl font-bold text-red-400 mt-1">{Object.values(BARRIOS_VILELAS).length}</div>
             <div className="text-[10px] text-slate-500 mt-1">1.199 familias aprox.</div>
           </div>
           <div className="p-3 bg-slate-950/60 rounded border border-slate-800">
             <div className="text-slate-500 uppercase font-bold tracking-wider">Obras Prioritarias</div>
-            <div className="text-2xl font-bold text-amber-400 mt-1">
-              {OBRAS_HIDRAULICAS_VILELAS.length}
-            </div>
+            <div className="text-2xl font-bold text-amber-400 mt-1">{OBRAS_HIDRAULICAS_VILELAS.length}</div>
             <div className="text-[10px] text-slate-500 mt-1">Estado: Confirmadas</div>
           </div>
           <div className="p-3 bg-slate-950/60 rounded border border-slate-800">
             <div className="text-slate-500 uppercase font-bold tracking-wider">Refugios Operativos</div>
-            <div className="text-2xl font-bold text-emerald-400 mt-1">
-              {CENTROS_EVACUACION_VILELAS.length}
-            </div>
+            <div className="text-2xl font-bold text-emerald-400 mt-1">{CENTROS_EVACUACION_VILELAS.length}</div>
             <div className="text-[10px] text-slate-500 mt-1">{CAPACIDAD_TOTAL_REFUGIOS} personas</div>
           </div>
           <div className="p-3 bg-slate-950/60 rounded border border-slate-800">
@@ -184,199 +308,7 @@ export const MapasVilelasMejorado: React.FC<Props> = ({
 
       {/* MAPA INTERACTIVO */}
       <section className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 h-[700px]">
-        <MapContainer center={CENTRO_VILELAS} zoom={14} className="h-full w-full rounded-lg">
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-          <MapController centro={camara.centro} zoom={camara.zoom} />
-
-          {/* TODAS las capas deben ser hijas directas de UN ÚNICO LayersControl
-              para que el conmutador funcione correctamente. */}
-          <LayersControl position="topright">
-            {/* CAPA 1: BARRIOS RENABAP (POLÍGONOS) */}
-            {filtroVisibilidad.barrios && (
-              <LayersControlOverlay checked name="🏘️ Barrios RENABAP">
-                <>
-                  {Object.values(BARRIOS_VILELAS).map((barrio) => (
-                    <Polygon
-                      key={barrio.id}
-                      positions={generarPoligonoBarrio(barrio.lat, barrio.lon, 0.008)}
-                      pathOptions={{
-                        color: obtenerColorEstado(barrio.estado_actual),
-                        weight: 3,
-                        opacity: 0.7,
-                        fillOpacity: 0.3,
-                        dashArray: '5, 5',
-                      }}
-                    >
-                      <Popup>
-                        <div className="text-xs space-y-1">
-                          <div className="font-bold text-sm">{barrio.nombre}</div>
-                          <div>Precisión: {barrio.precision}</div>
-                          <div>Familias: {barrio.familias_estimadas || 'N/A'}</div>
-                          <div>Estado: {barrio.estado_actual}</div>
-                          <div className="text-[10px] text-slate-500 mt-2">
-                            {barrio.lat.toFixed(6)}, {barrio.lon.toFixed(6)}
-                          </div>
-                        </div>
-                      </Popup>
-                    </Polygon>
-                  ))}
-                </>
-              </LayersControlOverlay>
-            )}
-
-            {/* CAPA 2: OBRAS DE INFRAESTRUCTURA */}
-            {filtroVisibilidad.obras && (
-              <LayersControlOverlay checked name="⚙️ Obras Prioritarias (7 APA)">
-                <>
-                  {OBRAS_HIDRAULICAS_VILELAS.map((obra) => (
-                    <React.Fragment key={obra.id}>
-                      {/* Marcador */}
-                      <Marker position={[obra.lat, obra.lon]}>
-                        <Popup>
-                          <div className="text-xs space-y-2 max-w-[250px]">
-                            <div className="font-bold text-sm bg-slate-900 px-2 py-1 rounded text-white">
-                              Obra {obra.numero}: {obra.nombre}
-                            </div>
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Descripción</div>
-                              <div className="text-slate-300">{obra.descripcion}</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Ubicación</div>
-                              <div className="text-slate-300">{obra.ubicacion_referencia}</div>
-                            </div>
-                            {obra.extension_m && (
-                              <div>
-                                <div className="text-[10px] font-semibold text-slate-500 uppercase">Extensión</div>
-                                <div className="text-slate-300">{obra.extension_m.toLocaleString()} m</div>
-                              </div>
-                            )}
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Plazo</div>
-                              <div className="text-slate-300">{obra.plazo_estimado}</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Estado</div>
-                              <div className={`font-bold ${obra.estado_actual === 'CONFIRMADA' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                {obra.estado_actual}
-                              </div>
-                            </div>
-                            <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-700">
-                              {obra.lat.toFixed(6)}, {obra.lon.toFixed(6)}
-                            </div>
-                          </div>
-                        </Popup>
-                      </Marker>
-
-                      {/* Círculo de alcance (visible context) */}
-                      <Circle
-                        center={[obra.lat, obra.lon]}
-                        radius={(obra.extension_m || 500) / 111000} // Conversión aproximada a grados
-                        pathOptions={{
-                          color: obra.prioridad <= 2 ? '#ef4444' : '#f97316',
-                          weight: 1,
-                          opacity: 0.2,
-                          fillOpacity: 0.05,
-                        }}
-                      />
-                    </React.Fragment>
-                  ))}
-                </>
-              </LayersControlOverlay>
-            )}
-
-            {/* CAPA 3: CENTROS DE EVACUACIÓN */}
-            {filtroVisibilidad.refugios && (
-              <LayersControlOverlay checked name="🏠 Centros de Evacuación">
-                <>
-                  {CENTROS_EVACUACION_VILELAS.map((centro) => (
-                    <Circle
-                      key={centro.id}
-                      center={[centro.lat, centro.lon]}
-                      radius={300} // 300 metros de radio visual
-                      pathOptions={{
-                        color: '#10b981',
-                        weight: 2,
-                        opacity: 0.6,
-                        fillOpacity: 0.2,
-                      }}
-                    >
-                      <Popup>
-                        <div className="text-xs space-y-2 max-w-[280px]">
-                          <div className="font-bold text-sm bg-emerald-900 px-2 py-1 rounded text-white">
-                            {centro.nombre}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Capacidad</div>
-                              <div className="text-lg font-bold text-emerald-400">{centro.capacidad_personas}</div>
-                              <div className="text-[10px] text-slate-500">personas</div>
-                            </div>
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Familias</div>
-                              <div className="text-lg font-bold text-cyan-400">{centro.capacidad_familias_estimadas || 'N/A'}</div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-[10px] font-semibold text-slate-500 uppercase">Servicios</div>
-                            <div className="text-[11px] space-y-1">
-                              <div>{centro.agua_potable ? '✓' : '✗'} Agua potable</div>
-                              <div>{centro.electricidad ? '✓' : '✗'} Electricidad</div>
-                              <div>{centro.cocina_comedor ? '✓' : '✗'} Cocina/Comedor</div>
-                              <div>{centro.acceso_discapacitados ? '✓' : '✗'} Acceso discapacitados</div>
-                            </div>
-                          </div>
-                          {centro.barrios_cobertura && centro.barrios_cobertura.length > 0 && (
-                            <div>
-                              <div className="text-[10px] font-semibold text-slate-500 uppercase">Barrios próximos</div>
-                              <div className="text-[11px] text-slate-300">{centro.barrios_cobertura.join(', ')}</div>
-                            </div>
-                          )}
-                          <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-700">
-                            {centro.lat.toFixed(6)}, {centro.lon.toFixed(6)}
-                          </div>
-                        </div>
-                      </Popup>
-                    </Circle>
-                  ))}
-                </>
-              </LayersControlOverlay>
-            )}
-
-            {/* CAPA 4: ALERTAS SOS CIUDADANAS */}
-            {filtroVisibilidad.sos && (
-              <LayersControlOverlay checked name="🆘 Alertas SOS Activas">
-                <>
-                  {ticketsSOS
-                    .filter((t) => t.estado === 'PENDIENTE' || t.estado === 'DESPACHADO')
-                    .map((ticket) => (
-                      <Circle
-                        key={ticket.id}
-                        center={[ticket.lat, ticket.lon]}
-                        radius={150}
-                        pathOptions={{
-                          color: ticket.nivelUrgencia === 'MÁXIMO' ? '#dc2626' : '#ea580c',
-                          weight: 2,
-                          opacity: 0.8,
-                          fillOpacity: 0.3,
-                        }}
-                      >
-                        <Popup>
-                          <div className="text-xs space-y-1 max-w-[200px]">
-                            <div className="font-bold text-sm text-red-500">{ticket.nombre}</div>
-                            <div>📍 {ticket.direccion}</div>
-                            <div>Personas: {ticket.personasAfectadas}</div>
-                            <div>Urgencia: {ticket.nivelUrgencia}</div>
-                            <div className="text-[10px] text-slate-500">Estado: {ticket.estado}</div>
-                          </div>
-                        </Popup>
-                      </Circle>
-                    ))}
-                </>
-              </LayersControlOverlay>
-            )}
-          </LayersControl>
-        </MapContainer>
+        <div ref={mapContainerRef} className="w-full h-full rounded-lg" />
       </section>
 
       {/* LEYENDA DETALLADA */}
