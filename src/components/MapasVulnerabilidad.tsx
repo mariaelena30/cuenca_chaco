@@ -16,6 +16,10 @@ const Polyline = dynamic(() => import('react-leaflet').then((mod) => mod.Polylin
 const Marker = dynamic(() => import('react-leaflet').then((mod) => mod.Marker), { ssr: false });
 const Popup = dynamic(() => import('react-leaflet').then((mod) => mod.Popup), { ssr: false });
 const LayersControl = dynamic(() => import('react-leaflet').then((mod) => mod.LayersControl), { ssr: false });
+// NOTA: al envolver LayersControl con next/dynamic() se pierde la propiedad
+// estática LayersControl.Overlay, así que la importamos como componente
+// dinámico aparte y la usamos directo (ver <LayersControlOverlay> abajo).
+const LayersControlOverlay = dynamic(() => import('react-leaflet').then((mod) => mod.LayersControl.Overlay), { ssr: false });
 
 // Hook interno para controlar el salto de cámara (flyTo) hacia Paraje Tacuarí
 const MapController = ({ centro, zoom }: { centro: [number, number]; zoom: number }) => {
@@ -52,7 +56,7 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
     centro: CENTRO_BARRANQUERAS_VILELAS,
     zoom: 13,
   });
-  
+
   const [filtroRiesgo, setFiltroRiesgo] = useState<string>('TODOS');
 
   const barriosBarranquerasYVilelas = {
@@ -74,6 +78,17 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
     if (nivel >= estacionLocal.cotaAlerta) return '#f97316';
     return '#10b981';
   };
+
+  // Ticket SOS pendientes visibles según el filtro de gravedad seleccionado
+  const ticketsFiltrados = ticketsSOS.filter((t) => {
+    if (filtroRiesgo === 'TODOS') return true;
+    // 'CRÍTICO' muestra sólo los niveles de mayor urgencia
+    return t.nivelUrgencia === 'MÁXIMO' || t.nivelUrgencia === 'ALTO';
+  });
+
+  const barriosFiltrados = Object.values(barriosBarranquerasYVilelas).filter(
+    (b) => filtroRiesgo === 'TODOS' || b.esCritico
+  );
 
   return (
     <div className="space-y-10">
@@ -107,12 +122,12 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
 
         {/* CONTENEDOR DE LA INTERFAZ DOCK DEL SOFTWARE DE COMANDO */}
         <div className="flex flex-col lg:flex-row h-[600px] bg-slate-950 border border-slate-800 rounded-xl overflow-hidden font-sans">
-          
+
           {/* PANEL LATERAL DE LOGÍSTICA URBANA */}
           <div className="w-full lg:w-[340px] p-5 overflow-y-auto border-r border-slate-800 bg-slate-900/50 flex flex-col gap-5">
-            
+
             {/* INDICADOR HIDROMÉTRICO VIVO (OBTENIDO DEL PROPS ESTACIONES) */}
-            <div 
+            <div
               className="p-4 rounded-lg bg-slate-900 border-l-[6px]"
               style={{ borderLeftColor: obtenerColorAlerta(estacionLocal.lecturaActual) }}
             >
@@ -134,7 +149,7 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
             {/* FILTRADO DE INFRAESTRUCTURA */}
             <div>
               <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Filtrar Gravedad</label>
-              <select 
+              <select
                 value={filtroRiesgo}
                 onChange={(e) => setFiltroRiesgo(e.target.value)}
                 className="w-full mt-1 p-2.5 bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg focus:outline-none focus:border-red-500 cursor-pointer"
@@ -164,13 +179,13 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
 
             {/* CONTROL DE VISTAS TÁCTICAS */}
             <div className="mt-auto space-y-2">
-              <button 
+              <button
                 onClick={() => setCamara({ centro: COLONIA_TACUARI, zoom: 13 })}
                 className="w-full p-3 bg-red-950/40 border border-red-900/60 text-red-200 text-xs font-bold rounded-lg hover:bg-red-900/30 transition duration-200"
               >
                 🛰️ Desplazar a Paraje Tacuarí (35 km)
               </button>
-              <button 
+              <button
                 onClick={() => setCamara({ centro: CENTRO_BARRANQUERAS_VILELAS, zoom: 13 })}
                 className="w-full p-2 bg-slate-800 text-slate-400 text-xs rounded-lg hover:text-slate-200 transition duration-200"
               >
@@ -183,18 +198,102 @@ export const MapasVulnerabilidad: React.FC<Props> = ({
           {/* PAÑO GEOGRÁFICO INTEGRADO DEL VISOR */}
           <div className="flex-1 relative bg-slate-950">
             <MapContainer center={CENTRO_BARRANQUERAS_VILELAS} zoom={13} className="h-full w-full">
-              <TileLayer url="https://google.com{x}&y={y}&z={z}" attribution="&copy; Google Maps" />
+              {/* CORRECCIÓN: la URL original "https://google.com{x}&y={y}&z={z}" no es
+                  una plantilla de tiles válida (falta el subdominio/servidor y el
+                  path correcto), por eso el mapa quedaba en gris. Se usa OpenStreetMap,
+                  que es gratuito y no requiere API key. Si preferís la capa satelital
+                  de Google, hay una alternativa comentada abajo (uso no oficial). */}
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors"
+              />
+              {/* Alternativa satelital de Google (no oficial, puede dejar de funcionar sin aviso):
+              <TileLayer
+                url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"
+                attribution="&copy; Google"
+              /> */}
               <MapController centro={camara.centro} zoom={camara.zoom} />
 
-              {/* REQUERIMIENTO INTERACTIVE CONTROL: CAPAS CONMUTABLES */}
+              {/* REQUERIMIENTO INTERACTIVE CONTROL: CAPAS CONMUTABLES.
+                  Todas las capas deben ser hijas directas de UN ÚNICO
+                  LayersControl para que el conmutador funcione. */}
               <LayersControl position="topright">
-                
+
                 {/* CAPA 1: POLÍGONOS DE BARRIOS CRÍTICOS (PROPS BARRIOS) */}
-                <LayersControl.Overlay checked name="⚠️ Polígonos de Riesgo Inundación">
+                <LayersControlOverlay checked name="⚠️ Polígonos de Riesgo Inundación">
                   <>
-                    {Object.values(barriosBarranquerasYVilelas)
-                      .filter(b => filtroRiesgo === 'TODOS' || b.esCritico)
-                      .map((barrio, idx) => (
-                        <Polygon 
-                          key={idx} 
-                          positions={[[ -27.5115, -58.9405 ], [ -27.5140, -58.9250 ], [ -27.5190, -58.9280 ]]} // Fallback perimetral si el shape es vacío
+                    {barriosFiltrados.map((barrio, idx) => (
+                      <Polygon
+                        key={barrio.id ?? idx}
+                        // Fallback perimetral si el shape es vacío
+                        positions={[[-27.5115, -58.9405], [-27.5140, -58.9250], [-27.5190, -58.9280]]}
+                        pathOptions={{
+                          color: barrio.esCritico ? '#ef4444' : '#f97316',
+                          weight: 2,
+                          opacity: 0.7,
+                          fillOpacity: 0.25,
+                        }}
+                      >
+                        <Popup>
+                          <div className="text-xs space-y-1">
+                            <div className="font-bold text-sm">{barrio.nombre}</div>
+                            <div>Familias: {barrio.familias_estimadas ?? 'N/A'}</div>
+                            <div>Crítico: {barrio.esCritico ? 'Sí' : 'No'}</div>
+                          </div>
+                        </Popup>
+                      </Polygon>
+                    ))}
+                  </>
+                </LayersControlOverlay>
+
+                {/* CAPA 2: SOLICITUDES SOS ACTIVAS (PROPS TICKETSSOS) */}
+                <LayersControlOverlay checked name="🆘 Solicitudes SOS Activas">
+                  <>
+                    {ticketsFiltrados
+                      .filter((t) => t.estado === 'PENDIENTE' || t.estado === 'DESPACHADO')
+                      .map((ticket) => (
+                        <Marker key={ticket.id} position={[ticket.lat, ticket.lon]}>
+                          <Popup>
+                            <div className="text-xs space-y-1 max-w-[200px]">
+                              <div className="font-bold text-sm text-red-500">{ticket.nombre}</div>
+                              <div>📍 {ticket.direccion}</div>
+                              <div>Personas afectadas: {ticket.personasAfectadas}</div>
+                              <div>Urgencia: {ticket.nivelUrgencia}</div>
+                              <div className="text-[10px] text-slate-500">Estado: {ticket.estado}</div>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ))}
+                  </>
+                </LayersControlOverlay>
+
+                {/* CAPA 3: REPORTES CIUDADANOS DE ANEGAMIENTO (PROPS REPORTES) */}
+                <LayersControlOverlay name="💧 Reportes Ciudadanos de Anegamiento">
+                  <>
+                    {reportes.map((reporte) => (
+                      <Marker key={reporte.id} position={[reporte.lat, reporte.lon]}>
+                        <Popup>
+                          <div className="text-xs space-y-1 max-w-[200px]">
+                            <div className="font-bold text-sm text-sky-500">{reporte.nombre}</div>
+                            <div>📍 {reporte.calle} ({reporte.localidad})</div>
+                            <div>Nivel de agua: {reporte.nivelAguaAprox}</div>
+                            <div className="text-[10px] text-slate-500">
+                              {reporte.verificado ? '✓ Verificado' : '⏳ Sin verificar'}
+                            </div>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </>
+                </LayersControlOverlay>
+
+              </LayersControl>
+            </MapContainer>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default MapasVulnerabilidad;
