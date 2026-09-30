@@ -233,7 +233,7 @@ export const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-slate-400" />
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              Variables Hidroclimáticas Regionales
+              Variables Hidroclimáticas Regionales • Valores de referencia (no en vivo) 
             </span>
           </div>
           <h3 className="text-base font-bold text-white tracking-tight mt-0.5">
