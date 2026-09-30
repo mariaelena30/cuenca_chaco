@@ -71,7 +71,10 @@ export async function obtenerCuencasReales(): Promise<Record<string, Cuenca>> {
 
   const resultado: Record<string, Cuenca> = {};
   for (const [clave, viva] of Object.entries(cuencasVivas)) {
-    const estatica = CUENCAS_DETALLE[clave];
+        const estatica = CUENCAS_DETALLE[clave];
+    if (!estatica) {
+      console.warn('Cuenca sin metadata estática, clave del backend:', clave, viva);
+    }
     resultado[clave] = {
       ...(estatica || CUENCAS_DETALLE['parana']), // fallback si aparece una cuenca sin metadata estatica
       id: clave,
