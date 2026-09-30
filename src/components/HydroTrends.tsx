@@ -1,19 +1,8 @@
 import React, { useState } from 'react';
 import { EstacionHidrometrica, CrecidaHistorica } from '../types';
-import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Activity,
-  History,
-  Clock,
-  Gauge,
-  ArrowUpRight,
-  ShieldAlert,
-  Sliders,
-  Calculator,
-} from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, History, Calculator } from 'lucide-react';
 import { calcularTiempoConcentracionKirpich } from '../utils/hydrologyEngine';
+import { calcularPendienteDiaria } from '../services/estaciones';
 
 interface HydroTrendsProps {
   estaciones: EstacionHidrometrica[];
@@ -33,6 +22,58 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
     estaciones.find((e) => e.id === selectedStationId) || estaciones[0];
 
   const calculatedSimTc = calcularTiempoConcentracionKirpich(simLongitudKm, simPendiente);
+
+  // ---- Cálculos de la estación seleccionada (todo sale del histórico) ----
+  const historico = selectedEstacion ? selectedEstacion.historico : [];
+  const alertaM = selectedEstacion ? selectedEstacion.nivel_alerta_m : 6.0;
+  const evacM = selectedEstacion ? selectedEstacion.nivel_evacuacion_m : 6.5;
+  const actualM = selectedEstacion ? selectedEstacion.altura_actual_m : 0;
+
+  const pendienteDia = calcularPendienteDiaria(historico);
+  const tendencia =
+    pendienteDia > 0.01 ? 'creciendo' : pendienteDia < -0.01 ? 'bajando' : 'estable';
+  const textoTendencia = `${tendencia} (${pendienteDia >= 0 ? '+' : ''}${pendienteDia.toFixed(2)} m en 24h)`;
+
+  const ultimaFecha =
+    historico.length > 0 ? new Date(historico[historico.length - 1].fecha) : null;
+  const diasDesdeUltima = ultimaFecha
+    ? Math.floor((Date.now() - ultimaFecha.getTime()) / 86400000)
+    : null;
+  const datoViejo = diasDesdeUltima !== null && diasDesdeUltima > 2;
+
+  let proyeccionTexto = 'Sin proyección de cruce de alerta';
+  let proyeccionClase = 'text-emerald-400';
+  if (datoViejo) {
+    proyeccionTexto = 'Sin proyección: el dato está desactualizado';
+    proyeccionClase = 'text-slate-400';
+  } else if (alertaM - actualM <= 0) {
+    proyeccionTexto = 'Nivel de alerta ya superado';
+    proyeccionClase = 'text-red-400';
+  } else if (pendienteDia > 0.01) {
+    const dias = (alertaM - actualM) / pendienteDia;
+    if (dias <= 3) {
+      proyeccionTexto = `~${dias.toFixed(1)} días al ritmo actual (crítico en 72h)`;
+      proyeccionClase = 'text-red-400';
+    } else {
+      proyeccionTexto = `~${dias.toFixed(1)} días al ritmo actual (no crítico en 72h)`;
+      proyeccionClase = 'text-amber-300';
+    }
+  }
+
+  // ---- Escala del gráfico (las líneas de umbral usan la misma escala) ----
+  const valores = historico.map((h) => h.altura_m);
+  const maxH = Math.max(evacM + 0.5, 7.0, ...valores.map((v) => v + 0.3));
+  const minH = Math.min(1.0, ...valores.map((v) => v - 0.5));
+  const rango = maxH - minH;
+  const yDe = (metros: number) => 170 - ((metros - minH) / rango) * 150;
+
+  const puntos = historico.map((h, idx) => ({
+    x: historico.length > 1 ? (idx / (historico.length - 1)) * 460 + 20 : 250,
+    y: yDe(h.altura_m),
+  }));
+  const trazo = puntos.reduce((acc, p, idx) => {
+    return idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
+  }, '');
 
   return (
     <div className="space-y-8 pb-12">
@@ -66,6 +107,14 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
           </div>
         </div>
 
+        {selectedEstacion && datoViejo && ultimaFecha && (
+          <div className="mb-4 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-amber-200 text-sm">
+            <b>Dato desactualizado:</b> la última lectura es del{' '}
+            {ultimaFecha.toLocaleDateString('es-AR')} (hace {diasDesdeUltima} días). El nivel y la
+            tendencia que se muestran no reflejan la situación actual.
+          </div>
+        )}
+
         {selectedEstacion && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Visual Hydrograph Curve */}
@@ -77,7 +126,8 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
                       Serie Hidrométrica — {selectedEstacion.nombre} ({selectedEstacion.rio})
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Lecturas oficiales Prefectura Naval Argentina (Últimos 7 días)
+                      Lecturas oficiales Prefectura Naval Argentina (últimas {historico.length}{' '}
+                      lecturas diarias)
                     </p>
                   </div>
                   <div className="text-right">
@@ -97,70 +147,51 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
                     <line x1="0" y1="130" x2="500" y2="130" stroke="#334155" strokeDasharray="4 4" strokeWidth="1" />
 
                     {/* Alert Threshold line */}
-                    <line x1="0" y1="50" x2="500" y2="50" stroke="#f97316" strokeDasharray="5 5" strokeWidth="1.5" />
-                    <text x="495" y="45" fill="#f97316" fontSize="10" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
-                      Nivel Alerta ({selectedEstacion.nivel_alerta_m.toFixed(2)}m)
+                    <line x1="0" y1={yDe(alertaM)} x2="500" y2={yDe(alertaM)} stroke="#f97316" strokeDasharray="5 5" strokeWidth="1.5" />
+                    <text x="495" y={yDe(alertaM) - 4} fill="#f97316" fontSize="10" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
+                      Nivel Alerta ({alertaM.toFixed(2)}m)
                     </text>
 
                     {/* Evacuation Threshold line */}
-                    <line x1="0" y1="20" x2="500" y2="20" stroke="#ef4444" strokeDasharray="5 5" strokeWidth="1.5" />
-                    <text x="495" y="16" fill="#ef4444" fontSize="10" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
-                      Nivel Evacuación ({selectedEstacion.nivel_evacuacion_m.toFixed(2)}m)
+                    <line x1="0" y1={yDe(evacM)} x2="500" y2={yDe(evacM)} stroke="#ef4444" strokeDasharray="5 5" strokeWidth="1.5" />
+                    <text x="495" y={yDe(evacM) - 4} fill="#ef4444" fontSize="10" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
+                      Nivel Evacuación ({evacM.toFixed(2)}m)
                     </text>
 
                     {/* Timeseries Points and Line */}
-                    {selectedEstacion.historico.length > 1 && (() => {
-                      const maxH = Math.max(selectedEstacion.nivel_evacuacion_m + 0.5, 7.0);
-                      const minH = 1.0;
-                      const range = maxH - minH;
-
-                      const points = selectedEstacion.historico.map((h, idx) => {
-                        const x = (idx / (selectedEstacion.historico.length - 1)) * 460 + 20;
-                        const y = 170 - ((h.altura_m - minH) / range) * 150;
-                        return { x, y, h: h.altura_m, f: h.fecha };
-                      });
-
-                      const pathD = points.reduce((acc, p, idx) => {
-                        return idx === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
-                      }, '');
-
-                      return (
-                        <g>
-                          {/* Gradient Area under curve */}
-                          <defs>
-                            <linearGradient id="hydroGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
-                              <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
-                            </linearGradient>
-                          </defs>
-                          <path
-                            d={`${pathD} L ${points[points.length - 1].x} 170 L ${points[0].x} 170 Z`}
-                            fill="url(#hydroGrad)"
+                    {puntos.length > 1 && (
+                      <g>
+                        <defs>
+                          <linearGradient id="hydroGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.4" />
+                            <stop offset="100%" stopColor="#06b6d4" stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d={`${trazo} L ${puntos[puntos.length - 1].x} 170 L ${puntos[0].x} 170 Z`}
+                          fill="url(#hydroGrad)"
+                        />
+                        <path d={trazo} fill="none" stroke="#22d3ee" strokeWidth="3" />
+                        {puntos.map((p, idx) => (
+                          <circle
+                            key={idx}
+                            cx={p.x}
+                            cy={p.y}
+                            r="4"
+                            fill="#0891b2"
+                            stroke="#ffffff"
+                            strokeWidth="2"
                           />
-                          <path d={pathD} fill="none" stroke="#22d3ee" strokeWidth="3" />
-
-                          {/* Data points */}
-                          {points.map((p, idx) => (
-                            <circle
-                              key={idx}
-                              cx={p.x}
-                              cy={p.y}
-                              r="4"
-                              fill="#0891b2"
-                              stroke="#ffffff"
-                              strokeWidth="2"
-                            />
-                          ))}
-                        </g>
-                      );
-                    })()}
+                        ))}
+                      </g>
+                    )}
                   </svg>
                 </div>
               </div>
 
               {/* Date ticks */}
               <div className="flex justify-between text-[11px] text-slate-400 mt-2 px-2 font-mono">
-                {selectedEstacion.historico.map((h, i) => (
+                {historico.map((h, i) => (
                   <span key={i}>
                     {new Date(h.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })}
                   </span>
@@ -173,49 +204,46 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
               <div>
                 <h4 className="text-sm font-bold text-white mb-1">Diagnóstico de Tendencia</h4>
                 <p className="text-xs text-slate-400">
-                  Cálculo continuo de variación mediante mínimos cuadrados.
+                  Cálculo de variación por mínimos cuadrados sobre las lecturas mostradas.
                 </p>
               </div>
 
               <div className="p-3 bg-slate-900 rounded-lg border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Comportamiento Actual</span>
                 <div className="flex items-center gap-2 mt-1">
-                  {selectedEstacion.tendencia_texto.includes('creciendo') ? (
+                  {tendencia === 'creciendo' ? (
                     <TrendingUp className="w-5 h-5 text-amber-400" />
-                  ) : selectedEstacion.tendencia_texto.includes('bajando') ? (
+                  ) : tendencia === 'bajando' ? (
                     <TrendingDown className="w-5 h-5 text-emerald-400" />
                   ) : (
                     <Minus className="w-5 h-5 text-slate-400" />
                   )}
-                  <span className="text-sm font-bold text-white capitalize">
-                    {selectedEstacion.tendencia_texto}
-                  </span>
+                  <span className="text-sm font-bold text-white capitalize">{textoTendencia}</span>
                 </div>
               </div>
 
               <div className="p-3 bg-slate-900 rounded-lg border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Distancia al Umbral de Alerta</span>
                 <div className="text-lg font-bold font-mono text-cyan-300 mt-0.5">
-                  {(selectedEstacion.nivel_alerta_m - selectedEstacion.altura_actual_m).toFixed(2)} metros
+                  {(alertaM - actualM).toFixed(2)} metros
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
-                  Umbral Alerta: {selectedEstacion.nivel_alerta_m.toFixed(2)} m | Evacuación:{' '}
-                  {selectedEstacion.nivel_evacuacion_m.toFixed(2)} m
+                  Umbral Alerta: {alertaM.toFixed(2)} m | Evacuación: {evacM.toFixed(2)} m
                 </div>
               </div>
 
               <div className="p-3 bg-slate-900 rounded-lg border border-slate-800">
-                <span className="text-[11px] text-slate-400 block">Proyección a Alerta</span>
-                <div className="text-base font-bold text-slate-200 mt-0.5">
-                  {selectedEstacion.tendencia_texto.includes('creciendo') ? (
-                    <span className="text-amber-300">
-                      ~9 a 12 días sostenidos (No crítico en 72h)
-                    </span>
-                  ) : (
-                    <span className="text-emerald-400">Sin proyección de cruce de alerta</span>
-                  )}
+                <span className="text-[11px] text-slate-400 block">Proyección a Alerta (estimación lineal)</span>
+                <div className={`text-base font-bold mt-0.5 ${proyeccionClase}`}>
+                  {proyeccionTexto}
                 </div>
               </div>
+
+              {ultimaFecha && (
+                <div className="text-[11px] text-slate-500 font-mono">
+                  Última lectura: {ultimaFecha.toLocaleDateString('es-AR')}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -236,10 +264,10 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
         </div>
 
         <p className="text-xs text-slate-400 mb-6 max-w-3xl">
-          El tiempo de concentración ($T_c$) es el tiempo que tarda una gota de lluvia caída en el punto
+          El tiempo de concentración (Tc) es el tiempo que tarda una gota de lluvia caída en el punto
           hidráulicamente más alejado de la cuenca en llegar al punto de desagüe. En la llanura chaqueña
-          (pendientes de 0.0002 a 0.0003 m/m), los $T_c$ varían de 18 horas (Riacho Tragadero) a más de 130
-          horas (Río Bermejo).
+          (pendientes de 0.0002 a 0.0003 m/m) el Tc va de decenas de horas en los riachos cortos a más de
+          cien horas en los ríos largos, según la longitud y la pendiente de cada cuenca.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-950/80 p-5 rounded-xl border border-slate-800/80">
