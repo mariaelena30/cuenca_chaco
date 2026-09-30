@@ -27,7 +27,7 @@ import {
   CONTACTOS_EMERGENCIA,
 } from './data/chacoData';
 import { BARRIOS_BARRANQUERAS, BARRIOS_VILELAS } from './data/barriosVulnerables';
-import { Navbar } from './components/Navbar';
+import { Navbar, NivelRapido } from './components/Navbar';
 import {
   obtenerCuencasReales,
   obtenerLocalidadesReales,
@@ -39,6 +39,7 @@ import {
   obtenerAlertasSMN,
   EstadoAlertasSMN,
 } from './services/api';
+import { construirEstacionesVivas } from './services/estaciones';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
 import { MapasVilelasMejorado } from './components/MapasVilelas_MEJORADO';
 import { RecursosComunidad } from './components/RecursosComunidad';
@@ -56,6 +57,10 @@ const BARRIOS_INICIALES: Record<string, BarrioVulnerable> = {
   ...BARRIOS_BARRANQUERAS,
   ...BARRIOS_VILELAS,
 };
+
+function nombreLocalidadPluvial(clave: string): string {
+  return clave.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function App() {
   const [activeTab, setActiveTab] = useState<
@@ -82,6 +87,10 @@ export function App() {
     ultima_verificacion: null,
   });
 
+  // Estado real de la conexión con el backend
+  const [backendOnline, setBackendOnline] = useState<boolean>(true);
+  const [ultimaSync, setUltimaSync] = useState<string>('');
+
   // Modal States
   const [isSOSModalOpen, setIsSOSModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -96,9 +105,18 @@ export function App() {
       listarSOSReales(),
       listarReportesReales(),
       obtenerAlertasSMN(),
+      construirEstacionesVivas(ESTACIONES_HIDROMETRICAS),
     ]);
 
-    const [resCuencas, resLocs, resBarrios, resSOS, resReps, resAlertas] = resultados;
+    const [resCuencas, resLocs, resBarrios, resSOS, resReps, resAlertas, resEstaciones] = resultados;
+
+    const hayBackend = resCuencas.status === 'fulfilled' || resLocs.status === 'fulfilled';
+    setBackendOnline(hayBackend);
+    if (hayBackend) {
+      setUltimaSync(
+        new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+      );
+    }
 
     if (resCuencas.status === 'fulfilled') setCuencas(resCuencas.value);
     else console.warn('No se pudo traer /cuencas:', resCuencas.reason);
@@ -120,6 +138,9 @@ export function App() {
 
     if (resAlertas.status === 'fulfilled') setAlertasSMN(resAlertas.value);
     else console.warn('No se pudo traer /alertas:', resAlertas.reason);
+
+    if (resEstaciones.status === 'fulfilled') setEstaciones(resEstaciones.value);
+    else console.warn('No se pudieron armar las estaciones:', resEstaciones.reason);
   };
 
   useEffect(() => {
@@ -295,6 +316,14 @@ export function App() {
     (l) => l.estado === 'ALERTA' || l.fase_calculada === 'ATENCION'
   ).length;
 
+  // Niveles de la barra superior: salen de las estaciones (no son texto fijo)
+  const nivelesRapidos: NivelRapido[] = estaciones.map((est) => ({
+    nombre: est.nombre.split('(')[0].trim(),
+    valor: typeof est.altura_actual_m === 'number' ? est.altura_actual_m : null,
+    nivelAlerta: est.nivel_alerta_m,
+    nivelEvacuacion: est.nivel_evacuacion_m,
+  }));
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white relative overflow-x-hidden font-sans">
       <div className="fixed inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_#0f172a_0%,_#020617_100%)] opacity-80 z-0" />
@@ -315,22 +344,30 @@ export function App() {
           onOpenSITREP={() => setIsSITREPModalOpen(true)}
           sosPendingCount={sosPendingCount}
           alertCount={alertCount}
+          backendOnline={backendOnline}
+          ultimaSync={ultimaSync}
+          niveles={nivelesRapidos}
         />
       </div>
 
       {alertasSMN.alertas.length > 0 && (
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          {alertasSMN.alertas.map((alerta) => (
-            <div
-              key={alerta.id}
-              className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-amber-200 text-sm"
-            >
-              <span className="font-bold uppercase tracking-wide mr-2">
-                ⚠ Aviso SMN{alerta.localidades_pluviales_afectadas.length > 0 ? ' — Santa Sylvina' : ''}:
-              </span>
-              {alerta.titulo || alerta.descripcion}
-            </div>
-          ))}
+          {alertasSMN.alertas.map((alerta) => {
+            const afectadas = alerta.localidades_pluviales_afectadas;
+            const sufijo =
+              afectadas.length > 0 ? ' — ' + afectadas.map(nombreLocalidadPluvial).join(', ') : '';
+            return (
+              <div
+                key={alerta.id}
+                className="mb-2 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-amber-200 text-sm"
+              >
+                <span className="font-bold uppercase tracking-wide mr-2">
+                  ⚠ Aviso SMN{sufijo}:
+                </span>
+                {alerta.titulo || alerta.descripcion}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -343,6 +380,8 @@ export function App() {
             barrios={barrios}
             onSelectCuenca={(c) => setSelectedCuencaForModal(c)}
             onSelectLocalidad={() => setActiveTab('vulnerabilidad')}
+            onOpenSOS={() => setIsSOSModalOpen(true)}
+            onOpenReport={() => setIsReportModalOpen(true)}
           />
         )}
 
@@ -392,13 +431,17 @@ export function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 text-[10px] font-mono uppercase tracking-widest text-slate-500">
             <span className="flex items-center gap-1.5">
-              DB_STATUS: <span className="text-emerald-400 font-bold">SYNCED</span>
+              BACKEND:{' '}
+              <span
+                className={
+                  backendOnline ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'
+                }
+              >
+                {backendOnline ? 'CONECTADO' : 'SIN CONEXIÓN'}
+              </span>
             </span>
             <span className="flex items-center gap-1.5">
-              ENCRYPTION: <span className="text-cyan-400 font-bold">AES-256</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              UPLINK: <span className="text-emerald-400 font-bold">4.2 GBPS (APA-PNA)</span>
+              ÚLTIMA SYNC: <span className="text-cyan-400 font-bold">{ultimaSync || '--:--'}</span>
             </span>
             <span className="flex items-center gap-1.5">
               STUDY: <span className="text-cyan-300 font-bold">GÓMEZ (2025 CONICET/UNNE)</span>
