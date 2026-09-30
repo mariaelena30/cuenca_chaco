@@ -10,6 +10,13 @@ import {
   BookOpen,
 } from 'lucide-react';
 
+export interface NivelRapido {
+  nombre: string;
+  valor: number | null;
+  nivelAlerta?: number;
+  nivelEvacuacion?: number;
+}
+
 interface NavbarProps {
   activeTab: 'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico';
   setActiveTab: (tab: 'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico') => void;
@@ -21,6 +28,15 @@ interface NavbarProps {
   sosPendingCount: number;
   alertCount: number;
   backendOnline?: boolean;
+  ultimaSync?: string;
+  niveles?: NivelRapido[];
+}
+
+function claseNivel(n: NivelRapido): string {
+  if (n.valor === null) return 'text-slate-500';
+  if (n.nivelEvacuacion !== undefined && n.valor >= n.nivelEvacuacion) return 'text-red-400';
+  if (n.nivelAlerta !== undefined && n.valor >= n.nivelAlerta) return 'text-amber-400';
+  return 'text-white';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -34,6 +50,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   sosPendingCount,
   alertCount,
   backendOnline = true,
+  ultimaSync = '',
+  niveles = [],
 }) => {
   const [timeString, setTimeString] = useState<string>('');
 
@@ -67,20 +85,30 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="text-[11px] uppercase tracking-wider text-slate-300 font-medium">
               BACKEND & TELEMETRÍA:{' '}
               <span className={backendOnline ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
-                {backendOnline ? 'EN LÍNEA (SYNC 100%)' : 'RECONECTANDO'}
+                {backendOnline
+                  ? ultimaSync
+                    ? `EN LÍNEA (ÚLT. SYNC ${ultimaSync})`
+                    : 'EN LÍNEA'
+                  : 'SIN CONEXIÓN - DATOS PUEDEN ESTAR DESACTUALIZADOS'}
               </span>
             </span>
           </div>
 
-          <div className="hidden lg:flex items-center gap-3 text-[11px] text-slate-400 border-l border-slate-800 pl-4 font-mono">
-            <span>Barranqueras: <b className="text-white">3.22m</b></span>
-            <span className="text-slate-600">|</span>
-            <span>Resistencia: <b className="text-sky-300">2.45m</b></span>
-            <span className="text-slate-600">|</span>
-            <span>El Sauzalito: <b className="text-amber-400">3.10m</b></span>
-            <span className="text-slate-600">|</span>
-            <span>Puerto Bermejo: <b className="text-white">2.75m</b></span>
-          </div>
+          {niveles.length > 0 && (
+            <div className="hidden lg:flex items-center gap-3 text-[11px] text-slate-400 border-l border-slate-800 pl-4 font-mono">
+              {niveles.map((n, i) => (
+                <React.Fragment key={n.nombre}>
+                  {i > 0 && <span className="text-slate-600">|</span>}
+                  <span>
+                    {n.nombre}:{' '}
+                    <b className={claseNivel(n)}>
+                      {n.valor === null ? 's/d' : `${n.valor.toFixed(2)}m`}
+                    </b>
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4">
