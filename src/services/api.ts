@@ -39,16 +39,22 @@ export const API_BASE_URL: string =
   (import.meta as any).env?.VITE_API_URL || 'https://cuencas-bot.onrender.com';
 
 async function pedirJSON(ruta: string, opciones?: RequestInit): Promise<any> {
-  const respuesta = await fetch(`${API_BASE_URL}${ruta}`, {
-    ...opciones,
-    headers: { 'Content-Type': 'application/json', ...(opciones?.headers || {}) },
-  });
-  if (!respuesta.ok) {
-    throw new Error(`${ruta} respondió ${respuesta.status}`);
+  const controlador = new AbortController();
+  const temporizador = setTimeout(() => controlador.abort(), 45000);
+  try {
+    const respuesta = await fetch(`${API_BASE_URL}${ruta}`, {
+      ...opciones,
+      signal: controlador.signal,
+      headers: { 'Content-Type': 'application/json', ...(opciones?.headers || {}) },
+    });
+    if (!respuesta.ok) {
+      throw new Error(`${ruta} respondió ${respuesta.status}`);
+    }
+    return await respuesta.json();
+  } finally {
+    clearTimeout(temporizador);
   }
-  return respuesta.json();
 }
-
 // ---------------------------------------------------------------------
 // CUENCAS: metadata estática (chacoData.ts) + datos vivos (backend real)
 // ---------------------------------------------------------------------
