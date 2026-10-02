@@ -149,30 +149,14 @@ export function App() {
     return () => clearInterval(intervalo);
   }, []);
 
-  const handleCreateSOS = async (ticket: Partial<TicketSOS>) => {
+    const handleCreateSOS = async (ticket: Partial<TicketSOS>): Promise<boolean> => {
     try {
       const ticketCreado = await crearSOSReal(ticket);
       setTicketsSOS((prev) => [ticketCreado, ...prev]);
+      return true;
     } catch (e) {
-      console.warn('Fallback SOS local:', e);
-      const fallbackTicket: TicketSOS = {
-        id: `sos_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        nombre: ticket.nombre || 'Vecino en Emergencia',
-        telefono: ticket.telefono || '3624-000000',
-        localidad: ticket.localidad || 'Barranqueras',
-        direccion: ticket.direccion || 'Geolocalizado',
-        lat: ticket.lat || -27.48,
-        lon: ticket.lon || -58.93,
-        personasAfectadas: ticket.personasAfectadas || 1,
-        personasVulnerables: ticket.personasVulnerables || { ninos: 0, ancianos: 0, movilidadReducida: 0 },
-        alturaAguaCm: ticket.alturaAguaCm || 15,
-        nivelUrgencia: ticket.nivelUrgencia || 'ALTO',
-        requiere: ticket.requiere || ['CAMION_4X4'],
-        estado: 'PENDIENTE',
-        notasDespacho: ticket.notasDespacho || 'Solicitud generada vía Portal (sin conexión al backend)',
-      };
-      setTicketsSOS((prev) => [fallbackTicket, ...prev]);
+      console.warn('No se pudo enviar el SOS al backend:', e);
+      return false;
     }
   };
 
