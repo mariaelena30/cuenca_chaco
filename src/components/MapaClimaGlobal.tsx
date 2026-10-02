@@ -60,6 +60,8 @@ export const MapaClimaGlobal: React.FC = () => {
           height="420"
           frameBorder="0"
           loading="lazy"
+          sandbox="allow-scripts allow-same-origin allow-popups"
+          referrerPolicy="no-referrer"
         />
       </div>
 
