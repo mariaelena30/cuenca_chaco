@@ -3,8 +3,6 @@ import {
   AlertTriangle,
   MapPin,
   Phone,
-  User,
-  Users,
   LifeBuoy,
   Truck,
   HeartPulse,
@@ -14,11 +12,34 @@ import {
   Shield,
 } from 'lucide-react';
 import { TicketSOS } from '../types';
+import { COORDENADAS_RESPALDO } from '../data/chacoData';
+
+// Número de WhatsApp de emergencia: CONFIRMAR que sea real y que alguien lo atienda.
+// Si no hay uno, dejalo vacío ('') y el botón no se muestra.
+const WHATSAPP_NUMERO = '5493624780000';
+
+const LOCALIDADES_SOS = [
+  { clave: 'barranqueras', nombre: 'Barranqueras' },
+  { clave: 'resistencia', nombre: 'Resistencia' },
+  { clave: 'puerto_vilelas', nombre: 'Puerto Vilelas' },
+  { clave: 'isla_del_cerrito', nombre: 'Isla del Cerrito' },
+  { clave: 'el_sauzalito', nombre: 'El Sauzalito' },
+  { clave: 'puerto_bermejo', nombre: 'Puerto Bermejo' },
+  { clave: 'pampa_del_indio', nombre: 'Pampa del Indio' },
+  { clave: 'villa_rio_bermejito', nombre: 'Villa Río Bermejito' },
+  { clave: 'fuerte_esperanza', nombre: 'Fuerte Esperanza' },
+  { clave: 'la_leonesa', nombre: 'La Leonesa' },
+];
+
+const acotar = (valor: number, minimo: number, maximo: number): number => {
+  if (!Number.isFinite(valor)) return minimo;
+  return Math.min(maximo, Math.max(minimo, Math.round(valor)));
+};
 
 interface EmergencySOSModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitSOS: (ticket: Partial<TicketSOS>) => void;
+  onSubmitSOS: (ticket: Partial<TicketSOS>) => Promise<boolean>;
 }
 
 export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
@@ -28,34 +49,37 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
 }) => {
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [localidad, setLocalidad] = useState('Barranqueras');
+  const [localidad, setLocalidad] = useState('barranqueras');
   const [direccion, setDireccion] = useState('');
-  const [lat, setLat] = useState<number>(-27.4815);
-  const [lon, setLon] = useState<number>(-58.9324);
-  const [gpsDetected, setGpsDetected] = useState(false);
+  const [coordenadas, setCoordenadas] = useState<{ lat: number; lon: number } | null>(null);
+  const [gpsMensaje, setGpsMensaje] = useState('');
   const [personasAfectadas, setPersonasAfectadas] = useState(2);
   const [ninos, setNinos] = useState(0);
   const [ancianos, setAncianos] = useState(0);
-  const [movilidadReducida, setMovilidadReducida] = useState(0);
   const [alturaAguaCm, setAlturaAguaCm] = useState(20);
   const [nivelUrgencia, setNivelUrgencia] = useState<TicketSOS['nivelUrgencia']>('ALTO');
-  const [requiere, setRequiere] = useState<TicketSOS['requiere']>(['CAMION_4X4', 'ASISTENCIA_MEDICA']);
+  const [requiere, setRequiere] = useState<TicketSOS['requiere']>([]);
   const [notas, setNotas] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [trampa, setTrampa] = useState('');
+  const [estado, setEstado] = useState<'editando' | 'enviando' | 'enviado' | 'error'>('editando');
 
   const detectGPS = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLat(pos.coords.latitude);
-          setLon(pos.coords.longitude);
-          setGpsDetected(true);
-        },
-        (err) => {
-          console.warn('GPS error, using default locality coordinates', err);
-        }
-      );
+    setGpsMensaje('');
+    if (!navigator.geolocation) {
+      setGpsMensaje('Tu teléfono no permite el GPS. Escribí la dirección o referencia.');
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoordenadas({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setGpsMensaje('');
+      },
+      () => {
+        setCoordenadas(null);
+        setGpsMensaje('No pudimos obtener el GPS. Escribí la dirección o referencia.');
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
   };
 
   const toggleRequiere = (item: TicketSOS['requiere'][number]) => {
@@ -64,34 +88,78 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
     );
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const reiniciar = () => {
+    setNombre('');
+    setTelefono('');
+    setDireccion('');
+    setCoordenadas(null);
+    setGpsMensaje('');
+    setPersonasAfectadas(2);
+    setNinos(0);
+    setAncianos(0);
+    setAlturaAguaCm(20);
+    setNivelUrgencia('ALTO');
+    setRequiere([]);
+    setNotas('');
+    setTrampa('');
+    setEstado('editando');
+  };
+
+  const cerrar = () => {
+    if (estado === 'enviado') reiniciar();
+    onClose();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (estado === 'enviando') return;
     if (!nombre.trim() || !telefono.trim()) return;
 
-    onSubmitSOS({
-      nombre,
-      telefono,
+    // Campo trampa para bots: una persona real nunca lo completa.
+    if (trampa.trim() !== '') {
+      setEstado('enviado');
+      return;
+    }
+
+    const respaldo = COORDENADAS_RESPALDO[localidad];
+    const latFinal = coordenadas ? coordenadas.lat : respaldo?.lat ?? -27.4815;
+    const lonFinal = coordenadas ? coordenadas.lon : respaldo?.lon ?? -58.9324;
+
+    const ninosOk = acotar(ninos, 0, 50);
+    const ancianosOk = acotar(ancianos, 0, 50);
+
+    const partes: string[] = [];
+    if (!coordenadas) {
+      partes.push('SIN GPS: ubicación aproximada de la localidad, confirmar por teléfono.');
+    }
+    if (ninosOk > 0) partes.push(`Niños: ${ninosOk}.`);
+    if (ancianosOk > 0) partes.push(`Adultos mayores: ${ancianosOk}.`);
+    if (notas.trim()) partes.push(notas.trim());
+
+    setEstado('enviando');
+    const ok = await onSubmitSOS({
+      nombre: nombre.trim().slice(0, 80),
+      telefono: telefono.trim().slice(0, 20),
       localidad,
-      direccion: direccion || `Coordenadas: ${lat.toFixed(4)}, ${lon.toFixed(4)}`,
-      lat,
-      lon,
-      personasAfectadas,
+      direccion:
+        direccion.trim().slice(0, 160) ||
+        (coordenadas
+          ? `Coordenadas: ${latFinal.toFixed(4)}, ${lonFinal.toFixed(4)}`
+          : 'Sin dirección indicada'),
+      lat: latFinal,
+      lon: lonFinal,
+      personasAfectadas: acotar(personasAfectadas, 1, 100),
       personasVulnerables: {
-        ninos,
-        ancianos,
-        movilidadReducida,
+        ninos: ninosOk,
+        ancianos: ancianosOk,
+        movilidadReducida: 0,
       },
-      alturaAguaCm,
+      alturaAguaCm: acotar(alturaAguaCm, 0, 300),
       nivelUrgencia,
       requiere,
-      notasDespacho: notas,
+      notasDespacho: partes.join(' ').slice(0, 500),
     });
-
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      onClose();
-    }, 2500);
+    setEstado(ok ? 'enviado' : 'error');
   };
 
   if (!isOpen) return null;
@@ -110,13 +178,13 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                 Pedido de Auxilio y Rescate SOS
               </h3>
               <p className="text-xs text-slate-400">
-                Transmisión a Central de Bomberos (100) y Defensa Civil (103)
+                Pedido de ayuda a través del Portal Hídrico Chaco
               </p>
             </div>
           </div>
 
           <button
-            onClick={onClose}
+            onClick={cerrar}
             className="p-1 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
@@ -154,15 +222,17 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
               <Phone className="w-3 h-3" />
               <span>Prefectura 106</span>
             </a>
-            <a
-              href="https://wa.me/5493624780000"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs transition-colors"
-            >
-              <LifeBuoy className="w-3 h-3" />
-              <span>WhatsApp</span>
-            </a>
+            {WHATSAPP_NUMERO !== '' && (
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMERO}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs transition-colors"
+              >
+                <LifeBuoy className="w-3 h-3" />
+                <span>WhatsApp</span>
+              </a>
+            )}
           </div>
         </div>
 
@@ -170,20 +240,75 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
         <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[11px] text-slate-300 flex items-start gap-2">
           <Shield className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
           <span>
-            Completá este formulario si estás anegado, aislado o necesitás evacuación. El pedido entra directamente al <strong>mapa y centro de despacho de Bomberos y Defensa Civil</strong>.
+            Este formulario envía tu pedido al <strong>Portal Hídrico Chaco</strong>. No reemplaza la llamada: si hay peligro, llamá primero al 100 o al 103. Tus datos se usan para coordinar la asistencia.
           </span>
         </div>
 
-        {submitted ? (
-          <div className="py-10 text-center space-y-2">
-            <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto animate-bounce" />
-            <h4 className="text-lg font-bold text-white">¡PEDIDO DE AUXILIO REGISTRADO!</h4>
+        {estado === 'enviado' && (
+          <div className="py-8 text-center space-y-3">
+            <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
+            <h4 className="text-lg font-bold text-white">PEDIDO ENVIADO</h4>
             <p className="text-xs text-slate-300 max-w-md mx-auto">
-              Tu solicitud fue transmitida al Centro de Despacho de Bomberos (100) y Defensa Civil (103). Mantén tu teléfono con señal disponible y resguárdate en un punto elevado.
+              Tu pedido llegó al portal. Mantené tu teléfono con señal, andá a un lugar alto y, si podés, llamá igual al 100 o al 103.
             </p>
+            <button
+              onClick={cerrar}
+              className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer"
+            >
+              Cerrar
+            </button>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-3.5">
+        )}
+
+        {estado === 'error' && (
+          <div className="p-4 rounded-xl bg-rose-950/70 border border-rose-700 space-y-3 text-center">
+            <AlertTriangle className="w-8 h-8 text-rose-400 mx-auto" />
+            <h4 className="text-base font-black text-white">NO SE PUDO ENVIAR EL PEDIDO</h4>
+            <p className="text-xs text-rose-100">
+              No hay conexión con el portal. LLAMÁ AHORA a Bomberos o Defensa Civil.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href="tel:100"
+                className="py-2 rounded-lg bg-rose-600 text-white font-bold text-sm"
+              >
+                Llamar 100
+              </a>
+              <a
+                href="tel:103"
+                className="py-2 rounded-lg bg-amber-600 text-white font-bold text-sm"
+              >
+                Llamar 103
+              </a>
+            </div>
+            <button
+              onClick={() => setEstado('editando')}
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer"
+            >
+              Volver al formulario y reintentar
+            </button>
+          </div>
+        )}
+
+        {(estado === 'editando' || estado === 'enviando') && (
+          <form onSubmit={handleSubmit} className="space-y-3.5 relative">
+            {/* Campo trampa para bots (invisible para personas) */}
+            <div
+              aria-hidden="true"
+              style={{ position: 'absolute', left: '-9999px', width: 1, height: 1, overflow: 'hidden' }}
+            >
+              <label>
+                Sitio web
+                <input
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={trampa}
+                  onChange={(e) => setTrampa(e.target.value)}
+                />
+              </label>
+            </div>
+
             {/* Urgency Level Selector */}
             <div>
               <label className="text-xs text-slate-400 font-medium block mb-1">NIVEL DE URGENCIA:</label>
@@ -216,6 +341,7 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                 <input
                   type="text"
                   required
+                  maxLength={80}
                   placeholder="ej. Familia Fernández / Juan Pérez"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -228,6 +354,9 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                 <input
                   type="tel"
                   required
+                  maxLength={20}
+                  pattern="[0-9+()\s\-]{8,20}"
+                  title="Solo números, entre 8 y 20 caracteres"
                   placeholder="ej. 3624-123456"
                   value={telefono}
                   onChange={(e) => setTelefono(e.target.value)}
@@ -245,16 +374,11 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                   onChange={(e) => setLocalidad(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-slate-500 cursor-pointer"
                 >
-                  <option value="Barranqueras">Barranqueras</option>
-                  <option value="Resistencia">Resistencia</option>
-                  <option value="Puerto Vilelas">Puerto Vilelas</option>
-                  <option value="Isla del Cerrito">Isla del Cerrito</option>
-                  <option value="El Sauzalito">El Sauzalito</option>
-                  <option value="Puerto Bermejo">Puerto Bermejo</option>
-                  <option value="Pampa del Indio">Pampa del Indio</option>
-                  <option value="Villa Río Bermejito">Villa Río Bermejito</option>
-                  <option value="Fuerte Esperanza">Fuerte Esperanza</option>
-                  <option value="La Leonesa">La Leonesa</option>
+                  {LOCALIDADES_SOS.map((l) => (
+                    <option key={l.clave} value={l.clave}>
+                      {l.nombre}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -263,6 +387,7 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    maxLength={160}
                     placeholder="ej. Barrio San Pedro Pescador, Manzana 3"
                     value={direccion}
                     onChange={(e) => setDireccion(e.target.value)}
@@ -272,16 +397,24 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
                     type="button"
                     onClick={detectGPS}
                     className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer flex items-center gap-1 ${
-                      gpsDetected
+                      coordenadas
                         ? 'bg-emerald-950/60 text-emerald-300 border-emerald-700'
                         : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
                     }`}
                     title="Capturar coordenadas GPS actuales"
                   >
                     <MapPin className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{gpsDetected ? 'GPS OK' : 'GPS'}</span>
+                    <span className="hidden sm:inline">{coordenadas ? 'GPS OK' : 'GPS'}</span>
                   </button>
                 </div>
+                {gpsMensaje !== '' && (
+                  <p className="text-[11px] text-amber-300 mt-1">{gpsMensaje}</p>
+                )}
+                {!coordenadas && gpsMensaje === '' && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Sin GPS se usa la ubicación aproximada de la localidad: escribí bien la dirección.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -373,6 +506,7 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
               <label className="text-xs text-slate-400 block mb-1">Detalle o Referencia de Ingreso</label>
               <textarea
                 rows={2}
+                maxLength={400}
                 placeholder="ej. Entrar por calle lateral, poste caído..."
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}
@@ -384,7 +518,7 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
             <div className="pt-2 border-t border-slate-800 flex justify-end gap-2.5">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={cerrar}
                 className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Cancelar
@@ -392,10 +526,15 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
 
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
+                disabled={estado === 'enviando'}
+                className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 disabled:cursor-wait text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Enviar a Bomberos (100)</span>
+                <span>
+                  {estado === 'enviando'
+                    ? 'Enviando... puede tardar hasta 45 s'
+                    : 'Enviar pedido de ayuda'}
+                </span>
               </button>
             </div>
           </form>
