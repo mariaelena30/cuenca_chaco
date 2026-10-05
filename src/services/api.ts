@@ -380,3 +380,20 @@ function adaptarReporteDesdeBackend(r: any): ReporteCiudadano {
     impacto: 'MODERADO',
   };
 }
+
+
+// ---------------------------------------------------------------------
+// PRECIPITACION: lluvia de las ultimas 24 h (estimada por modelo)
+// ---------------------------------------------------------------------
+export interface PrecipitacionLocalidad {
+  nombre: string;
+  tipo_inundacion_dominante: string | null;
+  precipitacion_mm_24h: number | null;
+  fuente: string | null;
+  verificacion: string | null;
+}
+
+export async function obtenerPrecipitacion(): Promise<Record<string, PrecipitacionLocalidad>> {
+  const data = await pedirJSON('/precipitacion');
+  return data.precipitacion as Record<string, PrecipitacionLocalidad>;
+}
