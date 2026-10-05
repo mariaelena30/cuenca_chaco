@@ -30,7 +30,7 @@ import { BasinDetailModal } from './components/BasinDetailModal';
 import { AyudaEmergencia } from './components/AyudaEmergencia';
 import MapasVulnerabilidad from './components/MapasVulnerabilidad';
 import { IdiomaProvider, useIdioma } from './i18n';
-
+import { AvisosOficiales } from './components/AvisosOficiales';
 // Barrios RENABAP (Barranqueras + Vilelas) fusionados con los que ya
 // tenias en chacoData.ts. Esto es lo que se ve apenas carga la app.
 const BARRIOS_INICIALES: Record<string, BarrioVulnerable> = {
