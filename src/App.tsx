@@ -4,13 +4,7 @@ import {
   Localidad,
   EstacionHidrometrica,
   BarrioVulnerable,
-  TicketSOS,
-  ReporteCiudadano,
-  RecursoOperativo,
-  CentroEvacuacion,
-  AlertaPreVerificacion,
   CrecidaHistorica,
-  KanbanTask,
 } from './types';
 import {
   CUENCAS_DETALLE,
@@ -18,13 +12,6 @@ import {
   BARRIOS_VULNERABLES_DETALLE,
   ESTACIONES_HIDROMETRICAS,
   CRECIDAS_HISTORICAS,
-  CENTROS_EVACUACION_DATA,
-  RECURSOS_OPERATIVOS_DATA,
-  TICKETS_SOS_INICIALES,
-  REPORTES_CIUDADANOS_INICIALES,
-  ALERTAS_PRE_VERIFICACION_INICIALES,
-  KANBAN_TASKS_INICIALES,
-  CONTACTOS_EMERGENCIA,
 } from './data/chacoData';
 import { BARRIOS_BARRANQUERAS, BARRIOS_VILELAS } from './data/barriosVulnerables';
 import { Navbar, NivelRapido } from './components/Navbar';
@@ -32,23 +19,17 @@ import {
   obtenerCuencasReales,
   obtenerLocalidadesReales,
   obtenerBarriosReales,
-  crearSOSReal,
-  listarSOSReales,
-  crearReporteReal,
-  listarReportesReales,
   obtenerAlertasSMN,
   EstadoAlertasSMN,
 } from './services/api';
-import { construirEstacionesVivas } from './services/estaciones';
+import { construirEstacionesVivas, estacionesIniciales } from './services/estaciones';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
-import { MapasVilelasMejorado } from './components/MapasVilelas_MEJORADO';
 import { RecursosComunidad } from './components/RecursosComunidad';
 import { HydroTrends } from './components/HydroTrends';
-import { EmergencySOSModal } from './components/EmergencySOSModal';
-import { CitizenReportModal } from './components/CitizenReportModal';
 import { BasinDetailModal } from './components/BasinDetailModal';
-import { AIAdvisorModal } from './components/AIAdvisorModal';
+import { AyudaEmergencia } from './components/AyudaEmergencia';
 import MapasVulnerabilidad from './components/MapasVulnerabilidad';
+import { IdiomaProvider, useIdioma } from './i18n';
 
 // Barrios RENABAP (Barranqueras + Vilelas) fusionados con los que ya
 // tenias en chacoData.ts. Esto es lo que se ve apenas carga la app.
@@ -62,24 +43,18 @@ function nombreLocalidadPluvial(clave: string): string {
   return clave.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function App() {
+function AppContenido() {
+  const { t } = useIdioma();
+
   const [activeTab, setActiveTab] = useState<
     'monitoreo' | 'vulnerabilidad' | 'recursos' | 'historico'
   >('monitoreo');
 
-  // Application State
+  // Estado de la aplicación
   const [cuencas, setCuencas] = useState<Record<string, Cuenca>>(CUENCAS_DETALLE);
   const [localidades, setLocalidades] = useState<Record<string, Localidad>>(LOCALIDADES_DETALLE);
   const [barrios, setBarrios] = useState<Record<string, BarrioVulnerable>>(BARRIOS_INICIALES);
-  const [estaciones, setEstaciones] = useState<EstacionHidrometrica[]>(ESTACIONES_HIDROMETRICAS);
-  const [ticketsSOS, setTicketsSOS] = useState<TicketSOS[]>(TICKETS_SOS_INICIALES);
-  const [reportes, setReportes] = useState<ReporteCiudadano[]>(REPORTES_CIUDADANOS_INICIALES);
-  const [recursos, setRecursos] = useState<RecursoOperativo[]>(RECURSOS_OPERATIVOS_DATA);
-  const [refugios, setRefugios] = useState<CentroEvacuacion[]>(CENTROS_EVACUACION_DATA);
-  const [alertasPreVerificacion, setAlertasPreVerificacion] = useState<AlertaPreVerificacion[]>(
-    ALERTAS_PRE_VERIFICACION_INICIALES
-  );
-  const [kanbanTasks, setKanbanTasks] = useState<KanbanTask[]>(KANBAN_TASKS_INICIALES);
+  const [estaciones, setEstaciones] = useState<EstacionHidrometrica[]>(() => estacionesIniciales());
   const [crecidasHistoricas] = useState<CrecidaHistorica[]>(CRECIDAS_HISTORICAS);
   const [alertasSMN, setAlertasSMN] = useState<EstadoAlertasSMN>({
     alertas: [],
@@ -91,10 +66,8 @@ export function App() {
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
   const [ultimaSync, setUltimaSync] = useState<string>('');
 
-  // Modal States
-  const [isSOSModalOpen, setIsSOSModalOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [isSITREPModalOpen, setIsSITREPModalOpen] = useState(false);
+  // Ventanas
+  const [ayudaAbierta, setAyudaAbierta] = useState(false);
   const [selectedCuencaForModal, setSelectedCuencaForModal] = useState<Cuenca | null>(null);
 
   const refreshData = async () => {
@@ -102,13 +75,11 @@ export function App() {
       obtenerCuencasReales(),
       obtenerLocalidadesReales(),
       obtenerBarriosReales(),
-      listarSOSReales(),
-      listarReportesReales(),
       obtenerAlertasSMN(),
       construirEstacionesVivas(ESTACIONES_HIDROMETRICAS),
     ]);
 
-    const [resCuencas, resLocs, resBarrios, resSOS, resReps, resAlertas, resEstaciones] = resultados;
+    const [resCuencas, resLocs, resBarrios, resAlertas, resEstaciones] = resultados;
 
     const hayBackend = resCuencas.status === 'fulfilled' || resLocs.status === 'fulfilled';
     setBackendOnline(hayBackend);
@@ -130,12 +101,6 @@ export function App() {
       console.warn('No se pudo traer /barrios:', resBarrios.reason);
     }
 
-    if (resSOS.status === 'fulfilled') setTicketsSOS(resSOS.value);
-    else console.warn('No se pudo traer /sos:', resSOS.reason);
-
-    if (resReps.status === 'fulfilled') setReportes(resReps.value);
-    else console.warn('No se pudo traer /reportes:', resReps.reason);
-
     if (resAlertas.status === 'fulfilled') setAlertasSMN(resAlertas.value);
     else console.warn('No se pudo traer /alertas:', resAlertas.reason);
 
@@ -149,164 +114,18 @@ export function App() {
     return () => clearInterval(intervalo);
   }, []);
 
-    const handleCreateSOS = async (ticket: Partial<TicketSOS>): Promise<boolean> => {
-    try {
-      const ticketCreado = await crearSOSReal(ticket);
-      setTicketsSOS((prev) => [ticketCreado, ...prev]);
-      return true;
-    } catch (e) {
-      console.warn('No se pudo enviar el SOS al backend:', e);
-      return false;
-    }
-  };
-
-  const handleCreateReport = async (reporte: Partial<ReporteCiudadano>) => {
-    try {
-      const reporteCreado = await crearReporteReal(reporte);
-      setReportes((prev) => [reporteCreado, ...prev]);
-    } catch (e) {
-      console.warn('Fallback Reporte local:', e);
-      const fallbackReport: ReporteCiudadano = {
-        id: `rep_${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        nombre: reporte.nombre || 'Vecino',
-        localidad: reporte.localidad || 'Resistencia',
-        barrio: reporte.barrio || '',
-        calle: reporte.calle || 'Esquina',
-        lat: -27.4511,
-        lon: -58.9866,
-        nivelAguaAprox: reporte.nivelAguaAprox || 'VEREDA',
-        descripcion: reporte.descripcion || 'Anegamiento reportado.',
-        verificado: false,
-        impacto: 'MODERADO',
-      };
-      setReportes((prev) => [fallbackReport, ...prev]);
-    }
-  };
-
-  const handleUpdateTicketStatus = async (
-    id: string,
-    estado: TicketSOS['estado'],
-    unidad?: string,
-    notas?: string
-  ) => {
-    try {
-      await fetch(`/api/sos/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado, unidadAsignada: unidad, notasDespacho: notas }),
-      });
-    } catch (e) {
-      console.warn('Error patching ticket on server', e);
-    }
-    setTicketsSOS((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              estado,
-              unidadAsignada: unidad !== undefined ? unidad : t.unidadAsignada,
-              notasDespacho: notas !== undefined ? notas : t.notasDespacho,
-            }
-          : t
-      )
-    );
-  };
-
-  const handleApprovePreAlerta = async (id: string, accion: 'APROBAR' | 'DESCARTAR') => {
-    try {
-      await fetch('/api/pre-alertas/accion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, accion }),
-      });
-    } catch (e) {
-      console.warn('Error updating pre-alert', e);
-    }
-    setAlertasPreVerificacion((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? {
-              ...a,
-              estado: accion === 'APROBAR' ? 'APROBADA_DIFUNDIDA' : 'DESCARTADA_FALSO_POSITIVO',
-              revisor: 'Operador de Turno Defensa Civil',
-            }
-          : a
-      )
-    );
-  };
-
-  const handleUpdateShelterOccupancy = (id: string, ocupados: number) => {
-    setRefugios((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, personasAlojadadas: ocupados } : r))
-    );
-  };
-
-  const handleUpdateResourceStatus = (
-    id: string,
-    estado: RecursoOperativo['estado'],
-    asignadoA?: string
-  ) => {
-    setRecursos((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, estado, asignadoA } : r))
-    );
-  };
-
-  const handleUpdateTask = async (id: string, estado: KanbanTask['estado']) => {
-    try {
-      await fetch('/api/kanban', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, estado }),
-      });
-    } catch (e) {
-      console.warn('Error patching kanban task', e);
-    }
-    setKanbanTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, estado } : t))
-    );
-  };
-
-  const handleCreateTask = async (task: Partial<KanbanTask>) => {
-    try {
-      const res = await fetch('/api/kanban', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(task),
-      });
-      const data = await res.json();
-      if (data.task) {
-        setKanbanTasks((prev) => [...prev, data.task]);
-      }
-    } catch (e) {
-      const newTask: KanbanTask = {
-        id: `k_${Date.now()}`,
-        titulo: task.titulo || 'Nueva tarea',
-        descripcion: task.descripcion || '',
-        prioridad: task.prioridad || 'MEDIA',
-        estado: task.estado || 'TODO',
-        categoria: task.categoria || 'OPERACIONES_CAMPO',
-        asignado: task.asignado || 'Personal de Guardia',
-      };
-      setKanbanTasks((prev) => [...prev, newTask]);
-    }
-  };
-
-  const sosPendingCount = ticketsSOS.filter(
-    (t) => t.estado === 'PENDIENTE' || t.estado === 'DESPACHADO'
-  ).length;
-
-  const alertCount = (Object.values(localidades) as Localidad[]).filter(
-    (l) => l.estado === 'ALERTA' || l.fase_calculada === 'ATENCION'
-  ).length;
-
-  // Niveles de la barra superior: salen de las estaciones (no son texto fijo)
-  const nivelesRapidos: NivelRapido[] = estaciones.map((est) => ({
-    nombre: est.nombre.split('(')[0].trim(),
-    valor: typeof est.altura_actual_m === 'number' ? est.altura_actual_m : null,
-    nivelAlerta: est.nivel_alerta_m,
-    nivelEvacuacion: est.nivel_evacuacion_m,
-  }));
+  // Niveles de la barra superior: salen de las estaciones. Si la última
+  // lectura tiene más de 48 h, se muestra "s/d" en lugar de un dato viejo.
+  const nivelesRapidos: NivelRapido[] = estaciones.map((est) => {
+    const ultima = est.historico.length > 0 ? est.historico[est.historico.length - 1].fecha : null;
+    const horas = ultima ? (Date.now() - new Date(ultima).getTime()) / 3600000 : Infinity;
+    return {
+      nombre: est.nombre.split('(')[0].trim(),
+      valor: horas <= 48 ? est.altura_actual_m : null,
+      nivelAlerta: est.nivel_alerta_m,
+      nivelEvacuacion: est.nivel_evacuacion_m,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-white relative overflow-x-hidden font-sans">
@@ -323,11 +142,7 @@ export function App() {
         <Navbar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onOpenSOS={() => setIsSOSModalOpen(true)}
-          onOpenReport={() => setIsReportModalOpen(true)}
-          onOpenSITREP={() => setIsSITREPModalOpen(true)}
-          sosPendingCount={sosPendingCount}
-          alertCount={alertCount}
+          onOpenAyuda={() => setAyudaAbierta(true)}
           backendOnline={backendOnline}
           ultimaSync={ultimaSync}
           niveles={nivelesRapidos}
@@ -364,8 +179,6 @@ export function App() {
             barrios={barrios}
             onSelectCuenca={(c) => setSelectedCuencaForModal(c)}
             onSelectLocalidad={() => setActiveTab('vulnerabilidad')}
-            onOpenSOS={() => setIsSOSModalOpen(true)}
-            onOpenReport={() => setIsReportModalOpen(true)}
           />
         )}
 
@@ -375,40 +188,22 @@ export function App() {
             localidades={localidades}
             estaciones={estaciones}
             barrios={barrios}
-            ticketsSOS={ticketsSOS}
-            reportes={reportes}
+            ticketsSOS={[]}
+            reportes={[]}
           />
         )}
 
-        {activeTab === 'recursos' && (
-          <RecursosComunidad localidades={localidades} />
-        )}
+        {activeTab === 'recursos' && <RecursosComunidad localidades={localidades} />}
 
         {activeTab === 'historico' && (
-          <HydroTrends
-            estaciones={estaciones}
-            crecidasHistoricas={crecidasHistoricas}
-          />
+          <HydroTrends estaciones={estaciones} crecidasHistoricas={crecidasHistoricas} />
         )}
       </main>
 
-      <EmergencySOSModal
-        isOpen={isSOSModalOpen}
-        onClose={() => setIsSOSModalOpen(false)}
-        onSubmitSOS={handleCreateSOS}
-      />
-      <CitizenReportModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        onSubmitReport={handleCreateReport}
-      />
+      <AyudaEmergencia isOpen={ayudaAbierta} onClose={() => setAyudaAbierta(false)} />
       <BasinDetailModal
         cuenca={selectedCuencaForModal}
         onClose={() => setSelectedCuencaForModal(null)}
-      />
-      <AIAdvisorModal
-        isOpen={isSITREPModalOpen}
-        onClose={() => setIsSITREPModalOpen(false)}
       />
 
       <footer className="relative z-10 bg-slate-950/90 border-t border-slate-800/80 backdrop-blur-xl text-slate-400 py-6 px-4 sm:px-8">
@@ -433,18 +228,26 @@ export function App() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono font-bold">
-            <span className="px-2.5 py-1 rounded bg-red-950/50 border border-red-900/60 text-red-400">🚨 DEF. CIVIL: 103</span>
-            <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400"> BOMBEROS: 100</span>
-            <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400"> PREFECTURA: 106</span>
-            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400"> SAME: 107</span>
+            <span className="px-2.5 py-1 rounded bg-red-950/50 border border-red-900/60 text-red-400">DEF. CIVIL: 103</span>
+            <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400">BOMBEROS: 100</span>
+            <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400">PREFECTURA: 106</span>
+            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400">SAME: 107</span>
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[10px] text-slate-600 font-mono">
-          © 2025 SENTINEL EMERGENCY HUB • SISTEMA INTEGRAL DE MONITOREO HIDROLÓGICO Y GESTIÓN DE EMERGENCIAS DEL CHACO
+        <div className="max-w-7xl mx-auto mt-4 pt-3 border-t border-slate-900 text-center text-[11px] text-slate-400">
+          {t('pie.info')}
         </div>
       </footer>
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <IdiomaProvider>
+      <AppContenido />
+    </IdiomaProvider>
   );
 }
 
