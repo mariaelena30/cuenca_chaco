@@ -22,7 +22,7 @@ import {
   obtenerAlertasSMN,
   EstadoAlertasSMN,
 } from './services/api';
-import { construirEstacionesVivas, estacionesIniciales } from './services/estaciones';
+import { construirEstacionesVivas } from './services/estaciones';
 import { MonitoringDashboard } from './components/MonitoringDashboard';
 import { RecursosComunidad } from './components/RecursosComunidad';
 import { HydroTrends } from './components/HydroTrends';
@@ -54,7 +54,7 @@ function AppContenido() {
   const [cuencas, setCuencas] = useState<Record<string, Cuenca>>(CUENCAS_DETALLE);
   const [localidades, setLocalidades] = useState<Record<string, Localidad>>(LOCALIDADES_DETALLE);
   const [barrios, setBarrios] = useState<Record<string, BarrioVulnerable>>(BARRIOS_INICIALES);
-  const [estaciones, setEstaciones] = useState<EstacionHidrometrica[]>(() => estacionesIniciales());
+  const [estaciones, setEstaciones] = useState<EstacionHidrometrica[]>(ESTACIONES_HIDROMETRICAS);
   const [crecidasHistoricas] = useState<CrecidaHistorica[]>(CRECIDAS_HISTORICAS);
   const [alertasSMN, setAlertasSMN] = useState<EstadoAlertasSMN>({
     alertas: [],
