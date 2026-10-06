@@ -3,22 +3,27 @@
  * ---------------------------------------
  * Dos objetivos, en este orden de prioridad:
  *
- * 1) Que la app ABRA aunque no haya señal o el 4G este muy lento -
- *    esto es lo mas importante: si alguien esta en medio de una
- *    crecida con mala conexion, necesita poder abrir la app y usar
- *    el boton SOS YA, no esperar a que cargue todo.
+ * 1) Que la app ABRA aunque no haya señal o el 4G este muy lento.
  *
- * 2) Datos siempre frescos cuando SI hay conexion - nunca mostrar
- *    numeros viejos guardados en cache como si fueran actuales. Los
- *    pedidos a la API del backend (cuencas-bot) van siempre a la red
- *    primero; el cache es solo el ultimo recurso si no hay conexion.
+ * 2) Datos siempre frescos cuando SI hay conexion, y NUNCA mostrar
+ *    numeros viejos como si fueran actuales. Por eso:
+ *      - Los pedidos a la API del backend (cuencas-bot) y a cualquier
+ *        otro sitio NO pasan por el cache: van siempre a la red. Si no
+ *        hay conexion, fallan, y la app avisa "SIN CONEXION" en lugar
+ *        de mostrar niveles viejos como si fueran de ahora.
+ *      - El cache guarda solo el "cascaron" de la app (pagina, scripts,
+ *        estilos, iconos) del propio sitio, para que pueda abrir.
  *
  * CACHE_VERSION: subir este numero cada vez que se despliega una
  * version nueva importante, asi los celulares que ya instalaron la
- * app bajan la actualizacion en vez de quedarse con una vieja.
+ * app bajan la actualizacion y borran el cache anterior.
+ *
+ * v2 (06/10/2026): la v1 guardaba tambien las respuestas de la API y las
+ * servia sin conexion, lo que podia mostrar niveles de rio viejos como
+ * si fueran actuales. Al subir a v2 se borra ese cache viejo.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `portal-hidrico-chaco-${CACHE_VERSION}`;
 
 // El "cascaron" de la app: lo minimo para que abra y muestre algo,
@@ -44,43 +49,52 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((nombres) =>
-      Promise.all(
-        nombres
-          .filter((nombre) => nombre !== CACHE_NAME)
-          .map((nombre) => caches.delete(nombre))
+    caches
+      .keys()
+      .then((nombres) =>
+        Promise.all(
+          nombres
+            .filter((nombre) => nombre !== CACHE_NAME)
+            .map((nombre) => caches.delete(nombre))
+        )
       )
-    )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
-  // Solo GET se cachea - los POST (SOS, reportes ciudadanos) SIEMPRE
-  // van directo a la red, nunca deben quedar "atendidos" por un
-  // cache viejo (eso podria hacer creer que un SOS se mando cuando
-  // en realidad no llego a ningun lado).
+  // Solo GET se considera - los POST SIEMPRE van directo a la red.
   if (request.method !== 'GET') {
     return;
   }
 
+  // Todo lo que NO es del propio sitio (la API del backend en Render,
+  // mapas, etc.) va siempre a la red, sin cache. Si falla, la app lo
+  // sabe y lo muestra, en vez de recibir datos viejos sin darse cuenta.
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Del propio sitio: red primero; el cache es solo el ultimo recurso
+  // para poder abrir la app sin conexion.
   event.respondWith(
     fetch(request)
       .then((respuesta) => {
-        // Se guarda una copia fresca en cache para la proxima vez
-        // que falte conexion.
-        const copia = respuesta.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
+        // Solo se guardan respuestas correctas y completas del propio sitio
+        if (respuesta.status === 200 && respuesta.type === 'basic') {
+          const copia = respuesta.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copia));
+        }
         return respuesta;
       })
       .catch(() =>
-        // Sin conexion: se sirve lo ultimo guardado, si existe.
         caches.match(request).then((cacheado) => {
           if (cacheado) return cacheado;
           // Ultimo recurso para navegacion (abrir la app): la pagina
-          // principal, para que al menos el boton SOS este visible.
+          // principal.
           if (request.mode === 'navigate') {
             return caches.match('/index.html');
           }
@@ -92,11 +106,9 @@ self.addEventListener('fetch', (event) => {
 
 /**
  * Notificaciones push (Firebase Cloud Messaging) - preparado para
- * cuando se conecte FCM (ver conversacion sobre notificaciones push
- * como tercer canal de alerta, ademas de Telegram/WhatsApp). Por ahora
- * no hay backend enviando pushes todavia, esto solo deja el manejo
- * ya escrito para no tener que volver a tocar el service worker
- * cuando se conecte.
+ * cuando se conecte FCM. Por ahora no hay backend enviando pushes,
+ * esto solo deja el manejo ya escrito para no tener que volver a
+ * tocar el service worker cuando se conecte.
  */
 self.addEventListener('push', (event) => {
   if (!event.data) return;
