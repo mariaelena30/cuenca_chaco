@@ -36,9 +36,35 @@ const APP_SHELL = [
   '/icon-512.png',
 ];
 
+// Guarda tambien los archivos de la app (scripts y estilos con nombre
+// cambiante, ej. /assets/index-AbC123.js) leyendo el index.html. Sin esto,
+// la app solo podria abrir sin conexion despues de haberla visitado dos
+// veces. Si algo falla, no se rompe la instalacion: esos archivos se
+// guardan igual cuando se usan.
+async function precargarArchivosDeLaApp(cache) {
+  try {
+    const respuesta = await fetch('/index.html', { cache: 'no-store' });
+    const html = await respuesta.text();
+    const rutas = new Set();
+    const patron = /(?:src|href)="(\/[^"]+\.(?:js|css))"/g;
+    let coincidencia;
+    while ((coincidencia = patron.exec(html)) !== null) {
+      rutas.add(coincidencia[1]);
+    }
+    await Promise.all([...rutas].map((ruta) => cache.add(ruta).catch(() => {})));
+  } catch (error) {
+    /* si falla, se guardan al usarlos */
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      // Cada archivo por separado: si falta uno (ej. un icono), los demas
+      // se guardan igual y la instalacion no falla.
+      await Promise.all(APP_SHELL.map((ruta) => cache.add(ruta).catch(() => {})));
+      await precargarArchivosDeLaApp(cache);
+    })
   );
   // No esperar a que se cierren las pestañas viejas - activar la
   // version nueva apenas termina de instalar. Para una app de
