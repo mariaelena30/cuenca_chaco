@@ -1375,4 +1375,5 @@ export const COORDENADAS_RESPALDO: Record<string, { lat: number; lon: number }> 
   quitilipi: { lat: -26.8700, lon: -60.2200 },        // Quitilipi (derutasymapas.com.ar)
   castelli: { lat: -25.9500, lon: -60.6170 },         // Juan José Castelli (Wikipedia)
   presidencia_de_la_plaza: { lat: -26.9986, lon: -59.8466 }, // Presidencia de la Plaza (codigopostalmundo.com)
+  saenz_pena: { lat: -26.7853, lon: -60.4388 },        // Presidencia Roque Sáenz Peña
 };
