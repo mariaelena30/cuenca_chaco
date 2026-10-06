@@ -1,9 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CloudRain, LocateFixed, Search } from 'lucide-react';
+import {
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSun,
+  Droplets,
+  LocateFixed,
+  Search,
+  Snowflake,
+  Sun,
+  Wind,
+} from 'lucide-react';
 
-// Si ya tenés una constante con la URL de la API en services/api.ts,
-// importala y reemplazá esta línea.
-const API: string = (import.meta as any).env?.VITE_API_URL ?? '';
+import { API_BASE_URL } from '../services/api';
+
+// Misma URL del backend que usa el resto del portal (services/api.ts)
+const API: string = API_BASE_URL;
 
 interface Lugar {
   nombre: string;
@@ -12,10 +26,28 @@ interface Lugar {
   lon: number;
 }
 
+interface Actual {
+  temperatura: number | null;
+  sensacion: number | null;
+  humedad: number | null;
+  viento_kmh: number | null;
+  codigo: number | null;
+  hora: string | null;
+}
+
 interface Dia {
   fecha: string;
+  codigo: number | null;
+  tmax: number | null;
+  tmin: number | null;
   lluvia_mm: number | null;
   probabilidad: number | null;
+}
+
+interface Pronostico {
+  actual: Actual | null;
+  lluvia_24h_mm: number | null;
+  dias: Dia[];
 }
 
 const LUGAR_POR_DEFECTO: Lugar = {
@@ -25,7 +57,36 @@ const LUGAR_POR_DEFECTO: Lugar = {
   lon: -58.9867,
 };
 
+const ATAJOS = [
+  'Resistencia',
+  'Barranqueras',
+  'Puerto Vilelas',
+  'Pampa del Indio',
+  'Charata',
+  'Juan José Castelli',
+];
+
 const CLAVE_GUARDADA = 'portal_hidrico_lugar';
+
+// Códigos de tiempo estándar (WMO) que devuelve Open-Meteo
+function tiempo(codigo: number | null): { texto: string; Icono: React.ComponentType<{ className?: string }> } {
+  if (codigo === null || codigo === undefined) return { texto: 'Sin dato', Icono: Cloud };
+  if (codigo === 0) return { texto: 'Despejado', Icono: Sun };
+  if (codigo === 1) return { texto: 'Mayormente despejado', Icono: CloudSun };
+  if (codigo === 2) return { texto: 'Parcialmente nublado', Icono: CloudSun };
+  if (codigo === 3) return { texto: 'Nublado', Icono: Cloud };
+  if (codigo === 45 || codigo === 48) return { texto: 'Niebla', Icono: CloudFog };
+  if (codigo >= 51 && codigo <= 57) return { texto: 'Llovizna', Icono: CloudDrizzle };
+  if (codigo === 61 || codigo === 66) return { texto: 'Lluvia débil', Icono: CloudRain };
+  if (codigo === 63 || codigo === 67) return { texto: 'Lluvia moderada', Icono: CloudRain };
+  if (codigo === 65) return { texto: 'Lluvia fuerte', Icono: CloudRain };
+  if (codigo >= 71 && codigo <= 77) return { texto: 'Nieve', Icono: Snowflake };
+  if (codigo === 80 || codigo === 81) return { texto: 'Chaparrones', Icono: CloudRain };
+  if (codigo === 82) return { texto: 'Chaparrones fuertes', Icono: CloudRain };
+  if (codigo === 85 || codigo === 86) return { texto: 'Nevadas', Icono: Snowflake };
+  if (codigo >= 95) return { texto: 'Tormenta', Icono: CloudLightning };
+  return { texto: 'Variable', Icono: Cloud };
+}
 
 function colorDeLluvia(mm: number): string {
   if (mm < 1) return 'bg-slate-600';
@@ -44,6 +105,10 @@ function etiquetaDia(fecha: string, indice: number): string {
 function fechaCorta(fecha: string): string {
   const d = new Date(fecha + 'T12:00:00');
   return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
+}
+
+function redondear(valor: number | null): string {
+  return valor === null || valor === undefined ? 's/d' : String(Math.round(valor));
 }
 
 function resumen(dias: Dia[]): { texto: string; nivel: 'calma' | 'atencion' | 'alerta' } {
@@ -85,10 +150,10 @@ export function PronosticoLluvia() {
   });
   const [consulta, setConsulta] = useState('');
   const [sugerencias, setSugerencias] = useState<Lugar[]>([]);
-  const [dias, setDias] = useState<Dia[]>([]);
+  const [datos, setDatos] = useState<Pronostico | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [errorUbicacion, setErrorUbicacion] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Trae el pronóstico cada vez que cambia el lugar
@@ -101,12 +166,18 @@ export function PronosticoLluvia() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((datos) => {
-        if (!cancelado) setDias(datos.dias ?? []);
+      .then((d) => {
+        if (!cancelado) {
+          setDatos({
+            actual: d.actual ?? null,
+            lluvia_24h_mm: d.lluvia_24h_mm ?? null,
+            dias: d.dias ?? [],
+          });
+        }
       })
       .catch(() => {
         if (!cancelado) {
-          setDias([]);
+          setDatos(null);
           setError('No pudimos traer el pronóstico. Probá de nuevo en unos minutos.');
         }
       })
@@ -117,6 +188,18 @@ export function PronosticoLluvia() {
       cancelado = true;
     };
   }, [lugar]);
+
+  const elegir = (l: Lugar) => {
+    setLugar(l);
+    setConsulta('');
+    setSugerencias([]);
+    setAviso(null);
+    try {
+      localStorage.setItem(CLAVE_GUARDADA, JSON.stringify(l));
+    } catch {
+      /* si el navegador no deja guardar, seguimos igual */
+    }
+  };
 
   // Buscador con espera de 300 ms entre teclas
   const alEscribir = (texto: string) => {
@@ -129,27 +212,31 @@ export function PronosticoLluvia() {
     temporizador.current = setTimeout(() => {
       fetch(`${API}/pronostico/buscar?q=${encodeURIComponent(texto.trim())}`)
         .then((r) => r.json())
-        .then((datos) => setSugerencias(datos.resultados ?? []))
+        .then((d) => setSugerencias(d.resultados ?? []))
         .catch(() => setSugerencias([]));
     }, 300);
   };
 
-  const elegir = (l: Lugar) => {
-    setLugar(l);
-    setConsulta('');
-    setSugerencias([]);
-    setErrorUbicacion(null);
+  // Los atajos buscan el nombre y se quedan con el resultado de Chaco
+  const elegirAtajo = async (nombre: string) => {
+    setAviso(null);
     try {
-      localStorage.setItem(CLAVE_GUARDADA, JSON.stringify(l));
+      const r = await fetch(`${API}/pronostico/buscar?q=${encodeURIComponent(nombre)}`);
+      const d = await r.json();
+      const lista: Lugar[] = d.resultados ?? [];
+      const deChaco = lista.find((l) => (l.provincia ?? '').toLowerCase().includes('chaco'));
+      const elegido = deChaco ?? lista[0];
+      if (elegido) elegir(elegido);
+      else setAviso(`No encontramos "${nombre}". Probá escribiéndolo en el buscador.`);
     } catch {
-      /* si el navegador no deja guardar, seguimos igual */
+      setAviso('No pudimos buscar el lugar. Probá de nuevo en unos minutos.');
     }
   };
 
   const usarMiUbicacion = () => {
-    setErrorUbicacion(null);
+    setAviso(null);
     if (!navigator.geolocation) {
-      setErrorUbicacion('Tu navegador no permite obtener la ubicación. Buscá tu localidad.');
+      setAviso('Tu navegador no permite obtener la ubicación. Buscá tu localidad.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -160,13 +247,17 @@ export function PronosticoLluvia() {
           lat: Number(pos.coords.latitude.toFixed(4)),
           lon: Number(pos.coords.longitude.toFixed(4)),
         }),
-      () => setErrorUbicacion('No pudimos obtener tu ubicación. Buscá tu localidad.'),
+      () => setAviso('No pudimos obtener tu ubicación. Buscá tu localidad.'),
       { timeout: 8000 }
     );
   };
 
+  const dias = datos?.dias ?? [];
+  const actual = datos?.actual ?? null;
   const maximoMm = Math.max(30, ...dias.map((d) => d.lluvia_mm ?? 0));
   const res = dias.length > 0 ? resumen(dias) : null;
+  const estadoActual = actual ? tiempo(actual.codigo) : null;
+  const lluvia24 = datos?.lluvia_24h_mm ?? null;
 
   return (
     <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 sm:p-6">
@@ -175,9 +266,9 @@ export function PronosticoLluvia() {
           <CloudRain className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-slate-100">¿Va a llover donde vivís?</h2>
+          <h2 className="text-lg font-bold text-slate-100">El tiempo en tu localidad</h2>
           <p className="text-sm text-slate-400">
-            Buscá tu localidad y mirá la lluvia prevista para los próximos 7 días.
+            Buscá tu localidad y mirá cómo está el tiempo, cuánto llovió y cuánto se espera que llueva.
           </p>
         </div>
       </div>
@@ -218,41 +309,122 @@ export function PronosticoLluvia() {
           Usar mi ubicación
         </button>
       </div>
-      {errorUbicacion && <p className="mt-2 text-sm text-amber-300">{errorUbicacion}</p>}
 
-      <p className="mt-5 text-sm text-slate-400">
-        Pronóstico para{' '}
-        <span className="font-semibold text-slate-100">
-          {lugar.nombre}
-          {lugar.provincia ? `, ${lugar.provincia}` : ''}
-        </span>
-      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {ATAJOS.map((nombre) => (
+          <button
+            key={nombre}
+            type="button"
+            onClick={() => elegirAtajo(nombre)}
+            className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-300 hover:border-cyan-600 hover:text-cyan-300 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          >
+            {nombre}
+          </button>
+        ))}
+      </div>
+      {aviso && <p className="mt-2 text-sm text-amber-300">{aviso}</p>}
 
-      {cargando && <p className="mt-4 text-sm text-slate-500">Buscando el pronóstico…</p>}
+      {cargando && (
+        <p className="mt-5 text-sm text-slate-500">
+          Buscando el pronóstico… la primera consulta puede tardar hasta un minuto.
+        </p>
+      )}
 
       {error && !cargando && (
-        <div className="mt-4 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
+        <div className="mt-5 rounded-lg border border-amber-700/60 bg-amber-950/40 px-4 py-3 text-sm text-amber-200">
           {error}
         </div>
       )}
 
-      {res && !cargando && (
+      {datos && !cargando && (
         <>
-          <div className={`mt-4 rounded-lg border px-4 py-3 text-sm ${ESTILO_RESUMEN[res.nivel]}`}>
-            {res.texto}
+          {/* Tiempo actual */}
+          <div className="mt-5 rounded-xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5">
+            <p className="text-sm text-slate-400">
+              Ahora en{' '}
+              <span className="font-semibold text-slate-100">
+                {lugar.nombre}
+                {lugar.provincia ? `, ${lugar.provincia}` : ''}
+              </span>
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-x-8 gap-y-4">
+              <div className="flex items-center gap-4">
+                {estadoActual && <estadoActual.Icono className="h-12 w-12 text-cyan-300" />}
+                <div>
+                  <p className="text-4xl font-bold text-slate-100">
+                    {actual?.temperatura !== null && actual?.temperatura !== undefined
+                      ? `${Math.round(actual.temperatura)}°`
+                      : 's/d'}
+                  </p>
+                  <p className="text-sm text-slate-300">{estadoActual?.texto}</p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm sm:grid-cols-4">
+                <div>
+                  <dt className="text-xs text-slate-500">Sensación térmica</dt>
+                  <dd className="font-semibold text-slate-100">
+                    {actual?.sensacion !== null && actual?.sensacion !== undefined
+                      ? `${Math.round(actual.sensacion)}°`
+                      : 's/d'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="flex items-center gap-1 text-xs text-slate-500">
+                    <Droplets className="h-3 w-3" /> Humedad
+                  </dt>
+                  <dd className="font-semibold text-slate-100">
+                    {actual?.humedad !== null && actual?.humedad !== undefined ? `${Math.round(actual.humedad)}%` : 's/d'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="flex items-center gap-1 text-xs text-slate-500">
+                    <Wind className="h-3 w-3" /> Viento
+                  </dt>
+                  <dd className="font-semibold text-slate-100">
+                    {actual?.viento_kmh !== null && actual?.viento_kmh !== undefined
+                      ? `${Math.round(actual.viento_kmh)} km/h`
+                      : 's/d'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="flex items-center gap-1 text-xs text-slate-500">
+                    <CloudRain className="h-3 w-3" /> Lluvia 24 h
+                  </dt>
+                  <dd className="font-semibold text-slate-100">
+                    {lluvia24 === null ? 's/d' : lluvia24 < 0.5 ? 'Sin lluvia' : `${lluvia24} mm`}
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-7 gap-1.5 sm:gap-3">
+          {/* Resumen de la semana */}
+          {res && (
+            <div className={`mt-4 rounded-lg border px-4 py-3 text-sm ${ESTILO_RESUMEN[res.nivel]}`}>
+              {res.texto}
+            </div>
+          )}
+
+          {/* Pronóstico a 7 días */}
+          <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-7 sm:gap-3">
             {dias.map((d, i) => {
               const mm = d.lluvia_mm ?? 0;
               const alto = Math.max(4, Math.round((Math.min(mm, maximoMm) / maximoMm) * 100));
+              const t = tiempo(d.codigo);
               return (
-                <div key={d.fecha} className="flex flex-col items-center text-center">
+                <div
+                  key={d.fecha}
+                  className="flex flex-col items-center rounded-lg border border-slate-800/80 bg-slate-900/40 px-1 py-2 text-center"
+                >
                   <span className="text-xs font-semibold capitalize text-slate-200">
                     {etiquetaDia(d.fecha, i)}
                   </span>
                   <span className="text-[11px] text-slate-500">{fechaCorta(d.fecha)}</span>
-                  <div className="my-2 flex h-28 w-full items-end justify-center rounded-md bg-slate-900/80 px-1.5 pb-1">
+                  <t.Icono className="my-1.5 h-6 w-6 text-cyan-300" />
+                  <span className="text-xs text-slate-100">
+                    {redondear(d.tmax)}° <span className="text-slate-500">/ {redondear(d.tmin)}°</span>
+                  </span>
+                  <div className="my-2 flex h-20 w-full items-end justify-center rounded-md bg-slate-900/80 px-2 pb-1">
                     <div
                       className={`w-full rounded-sm ${colorDeLluvia(mm)}`}
                       style={{ height: `${alto}%` }}
@@ -285,8 +457,8 @@ export function PronosticoLluvia() {
       )}
 
       <p className="mt-5 text-xs leading-relaxed text-slate-500">
-        Pronóstico de un modelo meteorológico (Open-Meteo), no un aviso oficial. Los milímetros son
-        por día: una lluvia concentrada en pocas horas es más peligrosa que la misma cantidad
+        Datos de un modelo meteorológico (Open-Meteo), no de una estación de medición ni un aviso oficial. Los
+        milímetros son por día: una lluvia concentrada en pocas horas es más peligrosa que la misma cantidad
         repartida. Para alertas oficiales consultá el{' '}
         <a
           href="https://www.argentina.gob.ar/smn"
