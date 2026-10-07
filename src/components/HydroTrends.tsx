@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
 import { EstacionHidrometrica, CrecidaHistorica } from '../types';
 import { TrendingUp, TrendingDown, Minus, History, Calculator } from 'lucide-react';
-import { calcularPendienteDiaria, hayHistorialSuficiente } from '../services/estaciones';
+import { calcularPendienteDiaria } from '../services/estaciones';
 
 interface HydroTrendsProps {
   estaciones: EstacionHidrometrica[];
   crecidasHistoricas: CrecidaHistorica[];
+}
+
+// Para calcular una tendencia hacen falta al menos 2 lecturas y que entre la
+// primera y la última pasen como mínimo 20 horas. Con lecturas muy cercanas en
+// el tiempo, una diferencia mínima se multiplica al pasarla a "metros por día"
+// y daría tendencias falsas.
+const HORAS_MINIMAS_PARA_TENDENCIA = 20;
+
+function hayHistorialSuficiente(lecturas: { fecha: string; altura_m: number }[]): boolean {
+  if (lecturas.length < 2) return false;
+  const primera = new Date(lecturas[0].fecha).getTime();
+  const ultima = new Date(lecturas[lecturas.length - 1].fecha).getTime();
+  return (ultima - primera) / 3600000 >= HORAS_MINIMAS_PARA_TENDENCIA;
 }
 
 // Fórmula de Kirpich (1940): Tc [minutos] = 0.0195 · L^0.77 · S^-0.385
