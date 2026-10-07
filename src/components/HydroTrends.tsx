@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { EstacionHidrometrica, CrecidaHistorica } from '../types';
 import { TrendingUp, TrendingDown, Minus, History, Calculator } from 'lucide-react';
-import { calcularPendienteDiaria } from '../services/estaciones';
+import { calcularPendienteDiaria, hayHistorialSuficiente } from '../services/estaciones';
 
 interface HydroTrendsProps {
   estaciones: EstacionHidrometrica[];
@@ -39,7 +39,7 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
   const evacM = selectedEstacion ? selectedEstacion.nivel_evacuacion_m : 6.5;
   const actualM = selectedEstacion ? selectedEstacion.altura_actual_m : 0;
 
-  const pocasLecturas = historico.length < 2;
+  const pocasLecturas = !hayHistorialSuficiente(historico);
   const pendienteDia = calcularPendienteDiaria(historico);
   const tendencia =
     pendienteDia > 0.01 ? 'creciendo' : pendienteDia < -0.01 ? 'bajando' : 'estable';
@@ -63,7 +63,7 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
     proyeccionTexto = 'Nivel de alerta ya superado';
     proyeccionClase = 'text-red-400';
   } else if (pocasLecturas) {
-    proyeccionTexto = 'Sin proyección: faltan lecturas (se necesitan al menos 2 días)';
+    proyeccionTexto = 'Sin proyección: falta historial (se necesitan lecturas de al menos 2 días distintos)';
     proyeccionClase = 'text-slate-400';
   } else if (pendienteDia > 0.01) {
     const dias = (alertaM - actualM) / pendienteDia;
