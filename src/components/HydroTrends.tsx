@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { EstacionHidrometrica, CrecidaHistorica } from '../types';
 import { TrendingUp, TrendingDown, Minus, History, Calculator } from 'lucide-react';
-import { calcularTiempoConcentracionKirpich } from '../utils/hydrologyEngine';
 import { calcularPendienteDiaria } from '../services/estaciones';
 
 interface HydroTrendsProps {
@@ -9,19 +8,30 @@ interface HydroTrendsProps {
   crecidasHistoricas: CrecidaHistorica[];
 }
 
+// Fórmula de Kirpich (1940): Tc [minutos] = 0.0195 · L^0.77 · S^-0.385
+// con L = longitud del cauce en METROS y S = pendiente media en m/m.
+// Devuelve horas. Es una estimación orientativa: la fórmula nació para
+// cuencas chicas, y en cuencas muy grandes y llanas solo sirve de referencia.
+function tiempoConcentracionKirpichHoras(longitudKm: number, pendiente: number): number | null {
+  if (!(longitudKm > 0) || !(pendiente > 0)) return null;
+  const minutos = 0.0195 * Math.pow(longitudKm * 1000, 0.77) * Math.pow(pendiente, -0.385);
+  const horas = minutos / 60;
+  return Number.isFinite(horas) ? Number(horas.toFixed(1)) : null;
+}
+
 export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHistoricas }) => {
   const [selectedStationId, setSelectedStationId] = useState<string>(
     estaciones[0]?.id || 'est_barranqueras'
   );
 
-  // Kirpich interactive simulator states
+  // Simulador de Kirpich
   const [simLongitudKm, setSimLongitudKm] = useState<number>(180);
   const [simPendiente, setSimPendiente] = useState<number>(0.00025);
 
   const selectedEstacion =
     estaciones.find((e) => e.id === selectedStationId) || estaciones[0];
 
-  const calculatedSimTc = calcularTiempoConcentracionKirpich(simLongitudKm, simPendiente);
+  const calculatedSimTc = tiempoConcentracionKirpichHoras(simLongitudKm, simPendiente);
 
   // ---- Cálculos de la estación seleccionada (todo sale del histórico) ----
   const historico = selectedEstacion ? selectedEstacion.historico : [];
@@ -29,10 +39,13 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
   const evacM = selectedEstacion ? selectedEstacion.nivel_evacuacion_m : 6.5;
   const actualM = selectedEstacion ? selectedEstacion.altura_actual_m : 0;
 
+  const pocasLecturas = historico.length < 2;
   const pendienteDia = calcularPendienteDiaria(historico);
   const tendencia =
     pendienteDia > 0.01 ? 'creciendo' : pendienteDia < -0.01 ? 'bajando' : 'estable';
-  const textoTendencia = `${tendencia} (${pendienteDia >= 0 ? '+' : ''}${pendienteDia.toFixed(2)} m en 24h)`;
+  const textoTendencia = pocasLecturas
+    ? 'sin tendencia: falta historial'
+    : `${tendencia} (${pendienteDia >= 0 ? '+' : ''}${pendienteDia.toFixed(2)} m en 24h)`;
 
   const ultimaFecha =
     historico.length > 0 ? new Date(historico[historico.length - 1].fecha) : null;
@@ -49,6 +62,9 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
   } else if (alertaM - actualM <= 0) {
     proyeccionTexto = 'Nivel de alerta ya superado';
     proyeccionClase = 'text-red-400';
+  } else if (pocasLecturas) {
+    proyeccionTexto = 'Sin proyección: faltan lecturas (se necesitan al menos 2 días)';
+    proyeccionClase = 'text-slate-400';
   } else if (pendienteDia > 0.01) {
     const dias = (alertaM - actualM) / pendienteDia;
     if (dias <= 3) {
@@ -126,8 +142,9 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
                       Serie Hidrométrica — {selectedEstacion.nombre} ({selectedEstacion.rio})
                     </h3>
                     <p className="text-xs text-slate-400">
-                      Lecturas oficiales Prefectura Naval Argentina (últimas {historico.length}{' '}
-                      lecturas diarias)
+                      {datoViejo
+                        ? 'Valores de referencia (no son lecturas actuales de Prefectura Naval)'
+                        : `Lecturas oficiales Prefectura Naval Argentina (últimas ${historico.length} lecturas diarias)`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -157,6 +174,18 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
                     <text x="495" y={yDe(evacM) - 4} fill="#ef4444" fontSize="10" textAnchor="end" fontFamily="sans-serif" fontWeight="bold">
                       Nivel Evacuación ({evacM.toFixed(2)}m)
                     </text>
+
+                    {/* Una sola lectura: solo el punto, sin línea */}
+                    {puntos.length === 1 && (
+                      <circle
+                        cx={puntos[0].x}
+                        cy={puntos[0].y}
+                        r="5"
+                        fill="#0891b2"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                      />
+                    )}
 
                     {/* Timeseries Points and Line */}
                     {puntos.length > 1 && (
@@ -211,7 +240,9 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
               <div className="p-3 bg-slate-900 rounded-lg border border-slate-800">
                 <span className="text-[11px] text-slate-400 block">Comportamiento Actual</span>
                 <div className="flex items-center gap-2 mt-1">
-                  {tendencia === 'creciendo' ? (
+                  {pocasLecturas ? (
+                    <Minus className="w-5 h-5 text-slate-400" />
+                  ) : tendencia === 'creciendo' ? (
                     <TrendingUp className="w-5 h-5 text-amber-400" />
                   ) : tendencia === 'bajando' ? (
                     <TrendingDown className="w-5 h-5 text-emerald-400" />
@@ -249,7 +280,7 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
         )}
       </section>
 
-      {/* Kirpich Concentration Time Interactive Simulator */}
+      {/* Calculadora del tiempo de concentración (fórmula de Kirpich) */}
       <section className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -263,11 +294,15 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
           <Calculator className="w-5 h-5 text-indigo-400" />
         </div>
 
-        <p className="text-xs text-slate-400 mb-6 max-w-3xl">
+        <p className="text-xs text-slate-400 mb-3 max-w-3xl">
           El tiempo de concentración (Tc) es el tiempo que tarda una gota de lluvia caída en el punto
-          hidráulicamente más alejado de la cuenca en llegar al punto de desagüe. En la llanura chaqueña
-          (pendientes de 0.0002 a 0.0003 m/m) el Tc va de decenas de horas en los riachos cortos a más de
-          cien horas en los ríos largos, según la longitud y la pendiente de cada cuenca.
+          hidráulicamente más alejado de la cuenca en llegar al punto de desagüe. Se calcula con la
+          fórmula de Kirpich: <span className="font-mono">Tc = 0,0195 · L^0,77 · S^-0,385</span> (Tc en
+          minutos, L en metros y S en m/m).
+        </p>
+        <p className="text-xs text-amber-300/90 mb-6 max-w-3xl">
+          Es una estimación orientativa: la fórmula fue pensada para cuencas chicas, y en cuencas muy
+          grandes y llanas como las del Chaco solo sirve como referencia, no como un valor medido.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-950/80 p-5 rounded-xl border border-slate-800/80">
@@ -313,10 +348,13 @@ export const HydroTrends: React.FC<HydroTrendsProps> = ({ estaciones, crecidasHi
           <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center items-center text-center">
             <span className="text-[11px] text-slate-400">Tiempo de Concentración Estimado (Tc)</span>
             <span className="text-3xl font-black text-white font-mono my-1 text-cyan-400">
-              {calculatedSimTc} <span className="text-sm font-normal text-slate-400">horas</span>
+              {calculatedSimTc !== null ? calculatedSimTc : 's/d'}{' '}
+              <span className="text-sm font-normal text-slate-400">horas</span>
             </span>
             <span className="text-xs text-slate-400">
-              ~{(calculatedSimTc / 24).toFixed(1)} días de anticipación de onda
+              {calculatedSimTc !== null
+                ? `~${(calculatedSimTc / 24).toFixed(1)} días para que el agua del punto más lejano llegue a la salida`
+                : 'Revisá los valores ingresados'}
             </span>
           </div>
         </div>
