@@ -13,7 +13,6 @@ const NUMEROS_NACIONALES: { numero: string; clave: ClaveTexto; estilo: string }[
   { numero: '103', clave: 'ayuda.defensaCivil', estilo: 'bg-amber-700 hover:bg-amber-600' },
   { numero: '100', clave: 'ayuda.bomberos', estilo: 'bg-rose-700 hover:bg-rose-600' },
   { numero: '106', clave: 'ayuda.prefectura', estilo: 'bg-sky-700 hover:bg-sky-600' },
-  { numero: '107', clave: 'ayuda.emergenciasMedicas', estilo: 'bg-emerald-700 hover:bg-emerald-600' },
   { numero: '911', clave: 'ayuda.policia', estilo: 'bg-slate-700 hover:bg-slate-600' },
 ];
 
