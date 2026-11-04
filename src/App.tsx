@@ -231,7 +231,7 @@ function AppContenido() {
             <span className="px-2.5 py-1 rounded bg-red-950/50 border border-red-900/60 text-red-400">DEF. CIVIL: 103</span>
             <span className="px-2.5 py-1 rounded bg-amber-950/50 border border-amber-900/60 text-amber-400">BOMBEROS: 100</span>
             <span className="px-2.5 py-1 rounded bg-cyan-950/50 border border-cyan-900/60 text-cyan-400">PREFECTURA: 106</span>
-            <span className="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-900/60 text-emerald-400">SAME: 107</span>
+            <span className="px-2.5 py-1 rounded bg-slate-800/70 border border-slate-600/60 text-slate-200">EMERGENCIAS: 911</span>
           </div>
         </div>
 
